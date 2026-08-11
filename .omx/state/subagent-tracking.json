@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sessions": {
+    "019fd00d-bdc1-73c0-9d58-fbf91bdaa3df": {
+      "session_id": "019fd00d-bdc1-73c0-9d58-fbf91bdaa3df",
+      "leader_thread_id": "019fd00d-bdc1-73c0-9d58-fbf91bdaa3df",
+      "updated_at": "2026-08-10T10:55:19.670Z",
+      "threads": {
+        "019fd00d-bdc1-73c0-9d58-fbf91bdaa3df": {
+          "thread_id": "019fd00d-bdc1-73c0-9d58-fbf91bdaa3df",
+          "kind": "leader",
+          "first_seen_at": "2026-08-05T04:04:27.979Z",
+          "last_seen_at": "2026-08-10T10:55:19.670Z",
+          "last_turn_id": "019feb4e-0662-72c0-a883-1079cd87f505",
+          "turn_count": 7
+        }
+      }
+    }
+  },
+  "pending_role_intents": []
+}
