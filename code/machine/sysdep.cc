@@ -159,7 +159,7 @@ PollFile(int fd)
 //----------------------------------------------------------------------
 
 int
-OpenForWrite(char *name)
+OpenForWrite(const char *name)
 {
     int fd = open(name, O_RDWR|O_CREAT|O_TRUNC, 0666);
 
@@ -176,7 +176,7 @@ OpenForWrite(char *name)
 //----------------------------------------------------------------------
 
 int
-OpenForReadWrite(char *name, bool crashOnError)
+OpenForReadWrite(const char *name, bool crashOnError)
 {
     int fd = open(name, O_RDWR, 0);
 
@@ -215,7 +215,7 @@ ReadPartial(int fd, char *buffer, int nBytes)
 //----------------------------------------------------------------------
 
 void
-WriteFile(int fd, char *buffer, int nBytes)
+WriteFile(int fd, const char *buffer, int nBytes)
 {
     int retVal = write(fd, buffer, nBytes);
     ASSERT(retVal == nBytes);
@@ -267,7 +267,7 @@ Close(int fd)
 //----------------------------------------------------------------------
 
 bool 
-Unlink(char *name)
+Unlink(const char *name)
 {
     return unlink(name);
 }
@@ -307,7 +307,7 @@ CloseSocket(int sockID)
 //----------------------------------------------------------------------
 
 static void 
-InitSocketName(struct sockaddr_un *uname, char *name)
+InitSocketName(struct sockaddr_un *uname, const char *name)
 {
     uname->sun_family = AF_UNIX;
     strcpy(uname->sun_path, name);
@@ -320,7 +320,7 @@ InitSocketName(struct sockaddr_un *uname, char *name)
 //----------------------------------------------------------------------
 
 void
-AssignNameToSocket(char *socketName, int sockID)
+AssignNameToSocket(const char *socketName, int sockID)
 {
     struct sockaddr_un uName;
     int retVal;
@@ -338,7 +338,7 @@ AssignNameToSocket(char *socketName, int sockID)
 // 	Delete the UNIX file name we assigned to our IPC port, on cleanup.
 //----------------------------------------------------------------------
 void
-DeAssignNameToSocket(char *socketName)
+DeAssignNameToSocket(const char *socketName)
 {
     (void) unlink(socketName);
 }
@@ -371,7 +371,7 @@ ReadFromSocket(int sockID, char *buffer, int packetSize)
 
     if (retVal != packetSize) {
         perror("in recvfrom");
-        printf("called: %x, got back %d, %d\n", buffer, retVal, errno);
+        printf("called: %p, got back %d, %d\n", static_cast<void *>(buffer), retVal, errno);
     }
     ASSERT(retVal == packetSize);
 }
@@ -382,7 +382,7 @@ ReadFromSocket(int sockID, char *buffer, int packetSize)
 //	Abort on error.
 //----------------------------------------------------------------------
 void
-SendToSocket(int sockID, char *buffer, int packetSize, char *toName)
+SendToSocket(int sockID, const char *buffer, int packetSize, const char *toName)
 {
     struct sockaddr_un uName;
     int retVal;

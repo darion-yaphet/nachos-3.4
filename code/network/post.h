@@ -33,7 +33,7 @@
 
 // Mailbox address -- uniquely identifies a mailbox on a given machine.
 // A mailbox is just a place for temporary storage for messages.
-typedef int MailBoxAddress;
+using MailBoxAddress = int;
 
 // The following class defines part of the message header.  
 // This is prepended to the message by the PostOffice, before the message 
@@ -41,16 +41,16 @@ typedef int MailBoxAddress;
 
 class MailHeader {
   public:
-    MailBoxAddress to;		// Destination mail box
-    MailBoxAddress from;	// Mail box to reply to
-    unsigned length;		// Bytes of message data (excluding the 
+    MailBoxAddress to = 0;		// Destination mail box
+    MailBoxAddress from = 0;	// Mail box to reply to
+    unsigned length = 0;		// Bytes of message data (excluding the 
 				// mail header)
 };
 
 // Maximum "payload" -- real data -- that can included in a single message
 // Excluding the MailHeader and the PacketHeader
 
-#define MaxMailSize 	(MaxPacketSize - sizeof(MailHeader))
+constexpr int MaxMailSize = MaxPacketSize - sizeof(MailHeader);
 
 
 // The following class defines the format of an incoming/outgoing 
@@ -61,13 +61,13 @@ class MailHeader {
 
 class Mail {
   public:
-     Mail(PacketHeader pktH, MailHeader mailH, char *msgData);
+     Mail(PacketHeader pktH, MailHeader mailH, const char *msgData);
 				// Initialize a mail message by
 				// concatenating the headers to the data
 
-     PacketHeader pktHdr;	// Header appended by Network
-     MailHeader mailHdr;	// Header appended by PostOffice
-     char data[MaxMailSize];	// Payload -- message data
+     PacketHeader pktHdr {};	// Header appended by Network
+     MailHeader mailHdr {};	// Header appended by PostOffice
+     char data[MaxMailSize] = {};	// Payload -- message data
 };
 
 // The following class defines a single mailbox, or temporary storage
@@ -80,14 +80,17 @@ class MailBox {
     MailBox();			// Allocate and initialize mail box
     ~MailBox();			// De-allocate mail box
 
-    void Put(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+    MailBox(const MailBox &) = delete;
+    MailBox &operator=(const MailBox &) = delete;
+
+    void Put(PacketHeader pktHdr, MailHeader mailHdr, const char *data);
    				// Atomically put a message into the mailbox
     void Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data); 
    				// Atomically get a message out of the 
 				// mailbox (and wait if there is no message 
 				// to get!)
   private:
-    SynchList *messages;	// A mailbox is just a list of arrived messages
+    SynchList *messages = nullptr;	// A mailbox is just a list of arrived messages
 };
 
 // The following class defines a "Post Office", or a collection of 
@@ -106,8 +109,11 @@ class PostOffice {
 				//   "reliability" is how many packets
 				//   get dropped by the underlying network
     ~PostOffice();		// De-allocate Post Office data
+
+    PostOffice(const PostOffice &) = delete;
+    PostOffice &operator=(const PostOffice &) = delete;
     
-    void Send(PacketHeader pktHdr, MailHeader mailHdr, char *data);
+    void Send(PacketHeader pktHdr, MailHeader mailHdr, const char *data);
     				// Send a message to a mailbox on a remote 
 				// machine.  The fromBox in the MailHeader is 
 				// the return box for ack's.
@@ -129,13 +135,13 @@ class PostOffice {
 				// PostalDelivery)
 
   private:
-    Network *network;		// Physical network connection
-    NetworkAddress netAddr;	// Network address of this machine
-    MailBox *boxes;		// Table of mail boxes to hold incoming mail
-    int numBoxes;		// Number of mail boxes
-    Semaphore *messageAvailable;// V'ed when message has arrived from network
-    Semaphore *messageSent;	// V'ed when next message can be sent to network
-    Lock *sendLock;		// Only one outgoing message at a time
+    Network *network = nullptr;		// Physical network connection
+    NetworkAddress netAddr = 0;	// Network address of this machine
+    MailBox *boxes = nullptr;		// Table of mail boxes to hold incoming mail
+    int numBoxes = 0;		// Number of mail boxes
+    Semaphore *messageAvailable = nullptr;// V'ed when message has arrived from network
+    Semaphore *messageSent = nullptr;	// V'ed when next message can be sent to network
+    Lock *sendLock = nullptr;		// Only one outgoing message at a time
 };
 
 #endif

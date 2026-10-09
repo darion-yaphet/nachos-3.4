@@ -20,8 +20,8 @@
 #include "openfile.h"
 
 // Definitions helpful for representing a bitmap as an array of integers
-#define BitsInByte 	8
-#define BitsInWord 	32
+constexpr int BitsInByte = 8;
+constexpr int BitsInWord = 32;
 
 // The following class defines a "bitmap" -- an array of bits,
 // each of which can be independently set, cleared, and tested.
@@ -33,19 +33,25 @@
 
 class BitMap {
   public:
-    BitMap(int nitems);		// Initialize a bitmap, with "nitems" bits
+    explicit BitMap(int nitems);		// Initialize a bitmap, with "nitems" bits
 				// initially, all bits are cleared.
     ~BitMap();			// De-allocate bitmap
+
+    BitMap(const BitMap&) = delete;
+    BitMap& operator=(const BitMap&) = delete;
+
+    BitMap(BitMap&& other) noexcept;
+    BitMap& operator=(BitMap&& other) noexcept;
     
     void Mark(int which);   	// Set the "nth" bit
     void Clear(int which);  	// Clear the "nth" bit
-    bool Test(int which);   	// Is the "nth" bit set?
+    [[nodiscard]] bool Test(int which) const;   	// Is the "nth" bit set?
     int Find();            	// Return the # of a clear bit, and as a side
 				// effect, set the bit. 
 				// If no bits are clear, return -1.
-    int NumClear();		// Return the number of clear bits
+    [[nodiscard]] int NumClear() const;		// Return the number of clear bits
 
-    void Print();		// Print contents of bitmap
+    void Print() const;		// Print contents of bitmap
     
     // These aren't needed until FILESYS, when we will need to read and 
     // write the bitmap to a file
@@ -53,12 +59,12 @@ class BitMap {
     void WriteBack(OpenFile *file); 	// write contents to disk
 
   private:
-    int numBits;			// number of bits in the bitmap
-    int numWords;			// number of words of bitmap storage
+    int numBits{0};			// number of bits in the bitmap
+    int numWords{0};			// number of words of bitmap storage
 					// (rounded up if numBits is not a
 					//  multiple of the number of bits in
 					//  a word)
-    unsigned int *map;			// bit storage
+    unsigned int *map{nullptr};			// bit storage
 };
 
 #endif // BITMAP_H

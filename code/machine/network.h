@@ -20,7 +20,7 @@
 
 // Network address -- uniquely identifies a machine.  This machine's ID 
 //  is given on the command line.
-typedef int NetworkAddress;	 
+using NetworkAddress = int;
 
 // The following class defines the network packet header.
 // The packet header is prepended to the data payload by the Network driver, 
@@ -30,15 +30,15 @@ typedef int NetworkAddress;
 
 class PacketHeader {
   public:
-    NetworkAddress to;		// Destination machine ID
-    NetworkAddress from;	// source machine ID
-    unsigned length;	 	// bytes of packet data, excluding the 
+    NetworkAddress to = 0;		// Destination machine ID
+    NetworkAddress from = 0;		// source machine ID
+    unsigned length = 0;	 	// bytes of packet data, excluding the 
 				// packet header (but including the 
 				// MailHeader prepended by the post office)
 };
 
-#define MaxWireSize 	64	// largest packet that can go out on the wire
-#define MaxPacketSize 	(MaxWireSize - sizeof(struct PacketHeader))	
+constexpr int MaxWireSize = 64;	// largest packet that can go out on the wire
+constexpr int MaxPacketSize = MaxWireSize - sizeof(PacketHeader);	
 				// data "payload" of the largest packet
 
 
@@ -58,8 +58,11 @@ class Network {
   	  VoidFunctionPtr readAvail, VoidFunctionPtr writeDone, intptr_t callArg);
 				// Allocate and initialize network driver
     ~Network();			// De-allocate the network driver data
+
+    Network(const Network &) = delete;
+    Network &operator=(const Network &) = delete;
     
-    void Send(PacketHeader hdr, char* data);
+    void Send(PacketHeader hdr, const char* data);
     				// Send the packet data to a remote machine,
 				// specified by "hdr".  Returns immediately.
     				// "writeHandler" is invoked once the next 
@@ -81,21 +84,21 @@ class Network {
     void CheckPktAvail();	// Check if there is an incoming packet
 
   private:
-    NetworkAddress ident;	// This machine's network address
-    double chanceToWork;	// Likelihood packet will be dropped
-    int sock;			// UNIX socket number for incoming packets
-    char sockName[32];		// File name corresponding to UNIX socket
-    VoidFunctionPtr writeHandler; // Interrupt handler, signalling next packet 
+    NetworkAddress ident = 0;	// This machine's network address
+    double chanceToWork = 0.0;	// Likelihood packet will be dropped
+    int sock = -1;			// UNIX socket number for incoming packets
+    char sockName[32] = {};		// File name corresponding to UNIX socket
+    VoidFunctionPtr writeHandler = nullptr; // Interrupt handler, signalling next packet 
 				//      can be sent.  
-    VoidFunctionPtr readHandler;  // Interrupt handler, signalling packet has 
+    VoidFunctionPtr readHandler = nullptr;  // Interrupt handler, signalling packet has 
 				// 	arrived.
-    intptr_t handlerArg;	// Argument to be passed to interrupt handler
+    intptr_t handlerArg = 0;	// Argument to be passed to interrupt handler
 				//   (pointer to post office)
-    bool sendBusy;		// Packet is being sent.
-    bool packetAvail;		// Packet has arrived, can be pulled off of
+    bool sendBusy = false;		// Packet is being sent.
+    [[maybe_unused]] bool packetAvail = false;		// Packet has arrived, can be pulled off of
 				//   network
-    PacketHeader inHdr;		// Information about arrived packet
-    char inbox[MaxPacketSize];  // Data for arrived packet
+    PacketHeader inHdr {};		// Information about arrived packet
+    char inbox[MaxPacketSize] = {};  // Data for arrived packet
 };
 
 #endif // NETWORK_H

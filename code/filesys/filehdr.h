@@ -17,8 +17,8 @@
 #include "disk.h"
 #include "bitmap.h"
 
-#define NumDirect 	((SectorSize - 2 * sizeof(int)) / sizeof(int))
-#define MaxFileSize 	(NumDirect * SectorSize)
+constexpr int NumDirect = ((SectorSize - 2 * sizeof(int)) / sizeof(int));
+constexpr int MaxFileSize = (NumDirect * SectorSize);
 
 // The following class defines the Nachos "file header" (in UNIX terms,  
 // the "i-node"), describing where on disk to find all of the data in the file.
@@ -37,6 +37,8 @@
 
 class FileHeader {
   public:
+    FileHeader() = default;
+
     bool Allocate(BitMap *bitMap, int fileSize);// Initialize a file header, 
 						//  including allocating space 
 						//  on disk for the file data
@@ -47,19 +49,19 @@ class FileHeader {
     void WriteBack(int sectorNumber); 	// Write modifications to file header
 					//  back to disk
 
-    int ByteToSector(int offset);	// Convert a byte offset into the file
+    [[nodiscard]] int ByteToSector(int offset) const;	// Convert a byte offset into the file
 					// to the disk sector containing
 					// the byte
 
-    int FileLength();			// Return the length of the file 
+    [[nodiscard]] int FileLength() const noexcept { return numBytes; }			// Return the length of the file 
 					// in bytes
 
-    void Print();			// Print the contents of the file.
+    void Print() const;			// Print the contents of the file.
 
   private:
-    int numBytes;			// Number of bytes in the file
-    int numSectors;			// Number of data sectors in the file
-    int dataSectors[NumDirect];		// Disk sector numbers for each data 
+    int numBytes{0};			// Number of bytes in the file
+    int numSectors{0};			// Number of data sectors in the file
+    int dataSectors[NumDirect]{};	// Disk sector numbers for each data 
 					// block in the file
 };
 

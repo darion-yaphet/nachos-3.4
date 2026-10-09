@@ -1,0 +1,16 @@
+# Object files
+*.o
+
+# Compiled Nachos executables
+nachos
+coff2noff
+coff2flat
+disassemble
+out
+
+# Emulated virtual disk
+DISK
+
+# MIPS test binaries and cores
+*.coff
+core

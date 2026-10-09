@@ -19,9 +19,15 @@
 
 // Dummy functions because C++ is weird about pointers to member functions
 static void ConsoleReadPoll(intptr_t c)
-{ Console *console = (Console *)c; console->CheckCharAvail(); }
+{ 
+    auto *console = reinterpret_cast<Console *>(c); 
+    console->CheckCharAvail(); 
+}
 static void ConsoleWriteDone(intptr_t c)
-{ Console *console = (Console *)c; console->WriteDone(); }
+{ 
+    auto *console = reinterpret_cast<Console *>(c); 
+    console->WriteDone(); 
+}
 
 //----------------------------------------------------------------------
 // Console::Console
@@ -36,14 +42,14 @@ static void ConsoleWriteDone(intptr_t c)
 //		output
 //----------------------------------------------------------------------
 
-Console::Console(char *readFile, char *writeFile, VoidFunctionPtr readAvail, 
+Console::Console(const char *readFile, const char *writeFile, VoidFunctionPtr readAvail, 
 		VoidFunctionPtr writeDone, intptr_t callArg)
 {
-    if (readFile == NULL)
+    if (readFile == nullptr)
 	readFileNo = 0;					// keyboard = stdin
     else
-    	readFileNo = OpenForReadWrite(readFile, TRUE);	// should be read-only
-    if (writeFile == NULL)
+    	readFileNo = OpenForReadWrite(readFile, true);	// should be read-only
+    if (writeFile == nullptr)
 	writeFileNo = 1;				// display = stdout
     else
     	writeFileNo = OpenForWrite(writeFile);
@@ -52,11 +58,11 @@ Console::Console(char *readFile, char *writeFile, VoidFunctionPtr readAvail,
     writeHandler = writeDone;
     readHandler = readAvail;
     handlerArg = callArg;
-    putBusy = FALSE;
-    incoming = EOF;
+    putBusy = false;
+    incoming = static_cast<char>(EOF);
 
     // start polling for incoming packets
-    interrupt->Schedule(ConsoleReadPoll, (intptr_t)this, ConsoleTime, ConsoleReadInt);
+    interrupt->Schedule(ConsoleReadPoll, reinterpret_cast<intptr_t>(this), ConsoleTime, ConsoleReadInt);
 }
 
 //----------------------------------------------------------------------
@@ -89,7 +95,7 @@ Console::CheckCharAvail()
     char c;
 
     // schedule the next time to poll for a packet
-    interrupt->Schedule(ConsoleReadPoll, (intptr_t)this, ConsoleTime,
+    interrupt->Schedule(ConsoleReadPoll, reinterpret_cast<intptr_t>(this), ConsoleTime,
 			ConsoleReadInt);
 
     // do nothing if character is already buffered, or none to be read
@@ -113,7 +119,7 @@ Console::CheckCharAvail()
 void
 Console::WriteDone()
 {
-    putBusy = FALSE;
+    putBusy = false;
     stats->numConsoleCharsWritten++;
     (*writeHandler)(handlerArg);
 }
@@ -129,7 +135,7 @@ Console::GetChar()
 {
    char ch = incoming;
 
-   incoming = EOF;
+   incoming = static_cast<char>(EOF);
    return ch;
 }
 
@@ -142,9 +148,9 @@ Console::GetChar()
 void
 Console::PutChar(char ch)
 {
-    ASSERT(putBusy == FALSE);
+    ASSERT(!putBusy);
     WriteFile(writeFileNo, &ch, sizeof(char));
-    putBusy = TRUE;
-    interrupt->Schedule(ConsoleWriteDone, (intptr_t)this, ConsoleTime,
+    putBusy = true;
+    interrupt->Schedule(ConsoleWriteDone, reinterpret_cast<intptr_t>(this), ConsoleTime,
 					ConsoleWriteInt);
 }

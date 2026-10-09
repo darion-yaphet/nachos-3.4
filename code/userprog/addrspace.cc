@@ -58,11 +58,12 @@ SwapHeader (NoffHeader *noffH)
 //----------------------------------------------------------------------
 
 AddrSpace::AddrSpace(OpenFile *executable)
+    : pageTable(nullptr), numPages(0)
 {
     NoffHeader noffH;
     unsigned int i, size;
 
-    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    executable->ReadAt(reinterpret_cast<char *>(&noffH), sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) && 
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
     	SwapHeader(&noffH);
@@ -87,10 +88,10 @@ AddrSpace::AddrSpace(OpenFile *executable)
     for (i = 0; i < numPages; i++) {
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
 	pageTable[i].physicalPage = i;
-	pageTable[i].valid = TRUE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+	pageTable[i].valid = true;
+	pageTable[i].use = false;
+	pageTable[i].dirty = false;
+	pageTable[i].readOnly = false;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
     }
@@ -117,12 +118,12 @@ AddrSpace::AddrSpace(OpenFile *executable)
 
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace
-// 	Dealloate an address space.  Nothing for now!
+// 	Deallocate an address space.
 //----------------------------------------------------------------------
 
 AddrSpace::~AddrSpace()
 {
-   delete pageTable;
+   delete [] pageTable;
 }
 
 //----------------------------------------------------------------------

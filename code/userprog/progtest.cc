@@ -21,12 +21,12 @@
 //----------------------------------------------------------------------
 
 void
-StartProcess(char *filename)
+StartProcess(const char *filename)
 {
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
 
-    if (executable == NULL) {
+    if (executable == nullptr) {
 	printf("Unable to open file %s\n", filename);
 	return;
     }
@@ -39,7 +39,7 @@ StartProcess(char *filename)
     space->RestoreState();		// load page table register
 
     machine->Run();			// jump to the user progam
-    ASSERT(FALSE);			// machine->Run never returns;
+    ASSERT(false);			// machine->Run never returns;
 					// the address space exits
 					// by doing the syscall "exit"
 }
@@ -56,8 +56,8 @@ static Semaphore *writeDone;
 // 	Wake up the thread that requested the I/O.
 //----------------------------------------------------------------------
 
-static void ReadAvail(intptr_t arg) { readAvail->V(); }
-static void WriteDone(intptr_t arg) { writeDone->V(); }
+static void ReadAvail([[maybe_unused]] intptr_t arg) { readAvail->V(); }
+static void WriteDone([[maybe_unused]] intptr_t arg) { writeDone->V(); }
 
 //----------------------------------------------------------------------
 // ConsoleTest
@@ -66,7 +66,7 @@ static void WriteDone(intptr_t arg) { writeDone->V(); }
 //----------------------------------------------------------------------
 
 void 
-ConsoleTest (char *in, char *out)
+ConsoleTest (const char *in, const char *out)
 {
     char ch;
 
@@ -79,6 +79,11 @@ ConsoleTest (char *in, char *out)
 	ch = console->GetChar();
 	console->PutChar(ch);	// echo it!
 	writeDone->P() ;        // wait for write to finish
-	if (ch == 'q') return;  // if q, quit
+	if (ch == 'q') {
+            delete console;
+            delete readAvail;
+            delete writeDone;
+            return;  // if q, quit
+        }
     }
 }

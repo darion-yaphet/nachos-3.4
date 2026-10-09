@@ -40,12 +40,12 @@ static void DiskDone(intptr_t arg) { ((Disk *)arg)->HandleInterrupt(); }
 //	"callArg" -- argument to pass the interrupt handler
 //----------------------------------------------------------------------
 
-Disk::Disk(char* name, VoidFunctionPtr callWhenDone, intptr_t callArg)
+Disk::Disk(const char* name, VoidFunctionPtr callWhenDone, intptr_t callArg)
 {
     int magicNum;
     int tmp = 0;
 
-    DEBUG('d', "Initializing the disk, 0x%x 0x%x\n", callWhenDone, callArg);
+    DEBUG('d', "Initializing the disk, %p 0x%lx\n", (void *)callWhenDone, (long)callArg);
     handler = callWhenDone;
     handlerArg = callArg;
     lastSector = 0;

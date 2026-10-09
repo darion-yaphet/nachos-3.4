@@ -38,17 +38,22 @@
 
 class Semaphore {
   public:
-    Semaphore(char* debugName, int initialValue);	// set initial value
+    Semaphore(const char* debugName, int initialValue);	// set initial value
     ~Semaphore();   					// de-allocate semaphore
-    char* getName() { return name;}			// debugging assist
+
+    // Non-copyable
+    Semaphore(const Semaphore &) = delete;
+    Semaphore &operator=(const Semaphore &) = delete;
+
+    [[nodiscard]] const char* getName() const noexcept { return name; }	// debugging assist
     
     void P();	 // these are the only operations on a semaphore
     void V();	 // they are both *atomic*
     
   private:
-    char* name;        // useful for debugging
-    int value;         // semaphore value, always >= 0
-    List *queue;       // threads waiting in P() for the value to be > 0
+    const char* name = nullptr;        // useful for debugging
+    int value = 0;                     // semaphore value, always >= 0
+    List *queue = nullptr;             // threads waiting in P() for the value to be > 0
 };
 
 // The following class defines a "lock".  A lock can be BUSY or FREE.
@@ -65,21 +70,51 @@ class Semaphore {
 
 class Lock {
   public:
-    Lock(char* debugName);  		// initialize lock to be FREE
+    explicit Lock(const char* debugName);  		// initialize lock to be FREE
     ~Lock();				// deallocate lock
-    char* getName() { return name; }	// debugging assist
+
+    // Non-copyable
+    Lock(const Lock &) = delete;
+    Lock &operator=(const Lock &) = delete;
+
+    [[nodiscard]] const char* getName() const noexcept { return name; }	// debugging assist
 
     void Acquire(); // these are the only operations on a lock
     void Release(); // they are both *atomic*
 
-    bool isHeldByCurrentThread();	// true if the current thread
+    [[nodiscard]] bool isHeldByCurrentThread() const;	// true if the current thread
 					// holds this lock.  Useful for
 					// checking in Release, and in
 					// Condition variable ops below.
 
   private:
-    char* name;				// for debugging
+    const char* name = nullptr;				// for debugging
     // plus some other stuff you'll need to define
+};
+
+// Modern C++ RAII LockGuard for Lock
+class LockGuard {
+  public:
+    explicit LockGuard(Lock *lockPtr) : lock(lockPtr) {
+        if (lock != nullptr) {
+            lock->Acquire();
+        }
+    }
+    explicit LockGuard(Lock &lockRef) : lock(&lockRef) {
+        if (lock != nullptr) {
+            lock->Acquire();
+        }
+    }
+    ~LockGuard() {
+        if (lock != nullptr) {
+            lock->Release();
+        }
+    }
+    LockGuard(const LockGuard &) = delete;
+    LockGuard &operator=(const LockGuard &) = delete;
+
+  private:
+    Lock *lock = nullptr;
 };
 
 // The following class defines a "condition variable".  A condition
@@ -116,10 +151,15 @@ class Lock {
 
 class Condition {
   public:
-    Condition(char* debugName);		// initialize condition to 
+    explicit Condition(const char* debugName);		// initialize condition to 
 					// "no one waiting"
     ~Condition();			// deallocate the condition
-    char* getName() { return (name); }
+
+    // Non-copyable
+    Condition(const Condition &) = delete;
+    Condition &operator=(const Condition &) = delete;
+
+    [[nodiscard]] const char* getName() const noexcept { return name; }
     
     void Wait(Lock *conditionLock); 	// these are the 3 operations on 
 					// condition variables; releasing the 
@@ -130,7 +170,7 @@ class Condition {
 					// these operations
 
   private:
-    char* name;
+    const char* name = nullptr;
     // plus some other stuff you'll need to define
 };
 #endif // SYNCH_H

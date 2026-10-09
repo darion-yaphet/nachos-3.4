@@ -77,7 +77,7 @@ FileHeader::Deallocate(BitMap *freeMap)
 void
 FileHeader::FetchFrom(int sector)
 {
-    synchDisk->ReadSector(sector, (char *)this);
+    synchDisk->ReadSector(sector, reinterpret_cast<char *>(this));
 }
 
 //----------------------------------------------------------------------
@@ -90,7 +90,7 @@ FileHeader::FetchFrom(int sector)
 void
 FileHeader::WriteBack(int sector)
 {
-    synchDisk->WriteSector(sector, (char *)this); 
+    synchDisk->WriteSector(sector, reinterpret_cast<char *>(this)); 
 }
 
 //----------------------------------------------------------------------
@@ -104,20 +104,9 @@ FileHeader::WriteBack(int sector)
 //----------------------------------------------------------------------
 
 int
-FileHeader::ByteToSector(int offset)
+FileHeader::ByteToSector(int offset) const
 {
     return(dataSectors[offset / SectorSize]);
-}
-
-//----------------------------------------------------------------------
-// FileHeader::FileLength
-// 	Return the number of bytes in the file.
-//----------------------------------------------------------------------
-
-int
-FileHeader::FileLength()
-{
-    return numBytes;
 }
 
 //----------------------------------------------------------------------
@@ -127,10 +116,10 @@ FileHeader::FileLength()
 //----------------------------------------------------------------------
 
 void
-FileHeader::Print()
+FileHeader::Print() const
 {
     int i, j, k;
-    char *data = new char[SectorSize];
+    char data[SectorSize];
 
     printf("FileHeader contents.  File size: %d.  File blocks:\n", numBytes);
     for (i = 0; i < numSectors; i++)
@@ -142,9 +131,8 @@ FileHeader::Print()
 	    if ('\040' <= data[j] && data[j] <= '\176')   // isprint(data[j])
 		printf("%c", data[j]);
             else
-		printf("\\%x", (unsigned char)data[j]);
+		printf("\\%x", static_cast<unsigned char>(data[j]));
 	}
         printf("\n"); 
     }
-    delete [] data;
 }

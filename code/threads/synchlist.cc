@@ -24,22 +24,17 @@
 
 SynchList::SynchList()
 {
-    list = new List();
-    lock = new Lock("list lock"); 
-    listEmpty = new Condition("list empty cond");
+    list = std::make_unique<List>();
+    lock = std::make_unique<Lock>("list lock"); 
+    listEmpty = std::make_unique<Condition>("list empty cond");
 }
 
 //----------------------------------------------------------------------
 // SynchList::~SynchList
-//	De-allocate the data structures created for synchronizing a list. 
+// 	De-allocate the data structures created for synchronizing a list. 
 //----------------------------------------------------------------------
 
-SynchList::~SynchList()
-{ 
-    delete list; 
-    delete lock;
-    delete listEmpty;
-}
+SynchList::~SynchList() = default;
 
 //----------------------------------------------------------------------
 // SynchList::Append
@@ -55,7 +50,7 @@ SynchList::Append(void *item)
 {
     lock->Acquire();		// enforce mutual exclusive access to the list 
     list->Append(item);
-    listEmpty->Signal(lock);	// wake up a waiter, if any
+    listEmpty->Signal(lock.get());	// wake up a waiter, if any
     lock->Release();
 }
 
@@ -74,9 +69,9 @@ SynchList::Remove()
 
     lock->Acquire();			// enforce mutual exclusion
     while (list->IsEmpty())
-	listEmpty->Wait(lock);		// wait until list isn't empty
+	listEmpty->Wait(lock.get());		// wait until list isn't empty
     item = list->Remove();
-    ASSERT(item != NULL);
+    ASSERT(item != nullptr);
     lock->Release();
     return item;
 }

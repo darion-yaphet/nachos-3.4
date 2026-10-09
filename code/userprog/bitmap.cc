@@ -18,12 +18,8 @@
 //----------------------------------------------------------------------
 
 BitMap::BitMap(int nitems) 
+    : numBits(nitems), numWords(divRoundUp(nitems, BitsInWord)), map(new unsigned int[numWords]())
 { 
-    numBits = nitems;
-    numWords = divRoundUp(numBits, BitsInWord);
-    map = new unsigned int[numWords];
-    for (int i = 0; i < numBits; i++) 
-        Clear(i);
 }
 
 //----------------------------------------------------------------------
@@ -33,7 +29,29 @@ BitMap::BitMap(int nitems)
 
 BitMap::~BitMap()
 { 
-    delete map;
+    delete [] map;
+}
+
+BitMap::BitMap(BitMap&& other) noexcept
+    : numBits(other.numBits), numWords(other.numWords), map(other.map)
+{
+    other.numBits = 0;
+    other.numWords = 0;
+    other.map = nullptr;
+}
+
+BitMap& BitMap::operator=(BitMap&& other) noexcept
+{
+    if (this != &other) {
+        delete [] map;
+        numBits = other.numBits;
+        numWords = other.numWords;
+        map = other.map;
+        other.numBits = 0;
+        other.numWords = 0;
+        other.map = nullptr;
+    }
+    return *this;
 }
 
 //----------------------------------------------------------------------
@@ -59,7 +77,7 @@ BitMap::Mark(int which)
 
 void 
 BitMap::Clear(int which) 
-{
+{ 
     ASSERT(which >= 0 && which < numBits);
     map[which / BitsInWord] &= ~(1 << (which % BitsInWord));
 }
@@ -72,14 +90,11 @@ BitMap::Clear(int which)
 //----------------------------------------------------------------------
 
 bool 
-BitMap::Test(int which)
+BitMap::Test(int which) const
 {
     ASSERT(which >= 0 && which < numBits);
     
-    if (map[which / BitsInWord] & (1 << (which % BitsInWord)))
-	return TRUE;
-    else
-	return FALSE;
+    return (map[which / BitsInWord] & (1 << (which % BitsInWord))) != 0;
 }
 
 //----------------------------------------------------------------------
@@ -109,7 +124,7 @@ BitMap::Find()
 //----------------------------------------------------------------------
 
 int 
-BitMap::NumClear() 
+BitMap::NumClear() const
 {
     int count = 0;
 
@@ -127,7 +142,7 @@ BitMap::NumClear()
 //----------------------------------------------------------------------
 
 void
-BitMap::Print() 
+BitMap::Print() const
 {
     printf("Bitmap set:\n"); 
     for (int i = 0; i < numBits; i++)
@@ -148,7 +163,7 @@ BitMap::Print()
 void
 BitMap::FetchFrom(OpenFile *file) 
 {
-    file->ReadAt((char *)map, numWords * sizeof(unsigned), 0);
+    file->ReadAt(reinterpret_cast<char *>(map), numWords * sizeof(unsigned), 0);
 }
 
 //----------------------------------------------------------------------
@@ -161,5 +176,5 @@ BitMap::FetchFrom(OpenFile *file)
 void
 BitMap::WriteBack(OpenFile *file)
 {
-   file->WriteAt((char *)map, numWords * sizeof(unsigned), 0);
+   file->WriteAt(reinterpret_cast<char *>(map), numWords * sizeof(unsigned), 0);
 }

@@ -25,7 +25,10 @@
 
 // dummy function because C++ does not allow pointers to member functions
 static void TimerHandler(intptr_t arg)
-{ Timer *p = (Timer *)arg; p->TimerExpired(); }
+{ 
+    auto *p = reinterpret_cast<Timer *>(arg); 
+    p->TimerExpired(); 
+}
 
 //----------------------------------------------------------------------
 // Timer::Timer
@@ -42,13 +45,10 @@ static void TimerHandler(intptr_t arg)
 //----------------------------------------------------------------------
 
 Timer::Timer(VoidFunctionPtr timerHandler, intptr_t callArg, bool doRandom)
+    : randomize(doRandom), handler(timerHandler), arg(callArg)
 {
-    randomize = doRandom;
-    handler = timerHandler;
-    arg = callArg; 
-
     // schedule the first interrupt from the timer device
-    interrupt->Schedule(TimerHandler, (intptr_t) this, TimeOfNextInterrupt(),
+    interrupt->Schedule(TimerHandler, reinterpret_cast<intptr_t>(this), TimeOfNextInterrupt(),
 		TimerInt); 
 }
 
@@ -62,7 +62,7 @@ void
 Timer::TimerExpired() 
 {
     // schedule the next timer device interrupt
-    interrupt->Schedule(TimerHandler, (intptr_t) this, TimeOfNextInterrupt(),
+    interrupt->Schedule(TimerHandler, reinterpret_cast<intptr_t>(this), TimeOfNextInterrupt(),
 		TimerInt);
 
     // invoke the Nachos interrupt handler for this device
@@ -76,7 +76,7 @@ Timer::TimerExpired()
 //----------------------------------------------------------------------
 
 int 
-Timer::TimeOfNextInterrupt() 
+Timer::TimeOfNextInterrupt() const
 {
     if (randomize)
 	return 1 + (Random() % (TimerTicks * 2));

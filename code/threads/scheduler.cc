@@ -70,7 +70,7 @@ Scheduler::ReadyToRun (Thread *thread)
 Thread *
 Scheduler::FindNextToRun ()
 {
-    return (Thread *)readyList->Remove();
+    return static_cast<Thread *>(readyList->Remove());
 }
 
 //----------------------------------------------------------------------
@@ -93,7 +93,7 @@ Scheduler::Run (Thread *nextThread)
     Thread *oldThread = currentThread;
     
 #ifdef USER_PROGRAM			// ignore until running user programs 
-    if (currentThread->space != NULL) {	// if this thread is a user program,
+    if (currentThread->space != nullptr) {	// if this thread is a user program,
         currentThread->SaveUserState(); // save the user's CPU registers
 	currentThread->space->SaveState();
     }
@@ -121,13 +121,13 @@ Scheduler::Run (Thread *nextThread)
     // we need to delete its carcass.  Note we cannot delete the thread
     // before now (for example, in Thread::Finish()), because up to this
     // point, we were still running on the old thread's stack!
-    if (threadToBeDestroyed != NULL) {
+    if (threadToBeDestroyed != nullptr) {
         delete threadToBeDestroyed;
-	threadToBeDestroyed = NULL;
+	threadToBeDestroyed = nullptr;
     }
     
 #ifdef USER_PROGRAM
-    if (currentThread->space != NULL) {		// if there is an address space
+    if (currentThread->space != nullptr) {		// if there is an address space
         currentThread->RestoreUserState();     // to restore, do it.
 	currentThread->space->RestoreState();
     }
@@ -140,7 +140,7 @@ Scheduler::Run (Thread *nextThread)
 //	the ready list.  For debugging.
 //----------------------------------------------------------------------
 void
-Scheduler::Print()
+Scheduler::Print() const
 {
     printf("Ready list contents:\n");
     readyList->Mapcar((VoidFunctionPtr) ThreadPrint);

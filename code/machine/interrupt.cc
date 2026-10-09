@@ -26,8 +26,8 @@
 
 // String definitions for debugging messages
 
-static char *intLevelNames[] = { "off", "on"};
-static char *intTypeNames[] = { "timer", "disk", "console write", 
+static const char *intLevelNames[] = { "off", "on"};
+static const char *intTypeNames[] = { "timer", "disk", "console write", 
 			"console read", "network send", "network recv"};
 
 //----------------------------------------------------------------------
@@ -41,29 +41,9 @@ static char *intTypeNames[] = { "timer", "disk", "console write",
 //	"kind" is the hardware device that generated the interrupt
 //----------------------------------------------------------------------
 
-PendingInterrupt::PendingInterrupt(VoidFunctionPtr func, intptr_t param, int time,
-				IntType kind)
-{
-    handler = func;
-    arg = param;
-    when = time;
-    type = kind;
-}
-
-//----------------------------------------------------------------------
-// Interrupt::Interrupt
-// 	Initialize the simulation of hardware device interrupts.
-//	
-//	Interrupts start disabled, with no interrupts pending, etc.
-//----------------------------------------------------------------------
-
 Interrupt::Interrupt()
+    : level(IntOff), pending(new List()), inHandler(false), yieldOnReturn(false), status(SystemMode)
 {
-    level = IntOff;
-    pending = new List();
-    inHandler = FALSE;
-    yieldOnReturn = FALSE;
-    status = SystemMode;
 }
 
 //----------------------------------------------------------------------
@@ -74,7 +54,7 @@ Interrupt::Interrupt()
 Interrupt::~Interrupt()
 {
     while (!pending->IsEmpty())
-	delete pending->Remove();
+	delete static_cast<PendingInterrupt *>(pending->Remove());
     delete pending;
 }
 
@@ -344,7 +324,7 @@ Interrupt::CheckIfDue(bool advanceClock)
 static void
 PrintPending(intptr_t arg)
 {
-    PendingInterrupt *pend = (PendingInterrupt *)arg;
+    auto *pend = reinterpret_cast<PendingInterrupt *>(arg);
 
     printf("Interrupt handler %s, scheduled at %d\n", 
 	intTypeNames[pend->type], pend->when);
@@ -357,7 +337,7 @@ PrintPending(intptr_t arg)
 //----------------------------------------------------------------------
 
 void
-Interrupt::DumpState()
+Interrupt::DumpState() const
 {
     printf("Time: %d, interrupts %s\n", stats->totalTicks, 
 					intLevelNames[level]);

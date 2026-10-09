@@ -78,7 +78,7 @@ void
 Initialize(int argc, char **argv)
 {
     int argCount;
-    char* debugArgs = "";
+    const char* debugArgs = "";
     bool randomYield = FALSE;
 
 #ifdef USER_PROGRAM
@@ -136,7 +136,7 @@ Initialize(int argc, char **argv)
     if (randomYield)				// start the timer (if needed)
 	timer = new Timer(TimerInterruptHandler, 0, randomYield);
 
-    threadToBeDestroyed = NULL;
+    threadToBeDestroyed = nullptr;
 
     // We didn't explicitly allocate the current thread we are running in.
     // But if it ever tries to give up the CPU, we better have a Thread

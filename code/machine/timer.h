@@ -29,21 +29,23 @@ class Timer {
     Timer(VoidFunctionPtr timerHandler, intptr_t callArg, bool doRandom);
 				// Initialize the timer, to call the interrupt
 				// handler "timerHandler" every time slice.
-    ~Timer() {}
+    ~Timer() = default;
+
+    Timer(const Timer&) = delete;
+    Timer& operator=(const Timer&) = delete;
 
 // Internal routines to the timer emulation -- DO NOT call these
 
     void TimerExpired();	// called internally when the hardware
 				// timer generates an interrupt
 
-    int TimeOfNextInterrupt();  // figure out when the timer will generate
+    [[nodiscard]] int TimeOfNextInterrupt() const;  // figure out when the timer will generate
 				// its next interrupt 
 
   private:
-    bool randomize;		// set if we need to use a random timeout delay
-    VoidFunctionPtr handler;	// timer interrupt handler 
-    intptr_t arg;		// argument to pass to interrupt handler
-
+    bool randomize{false};		// set if we need to use a random timeout delay
+    VoidFunctionPtr handler{nullptr};	// timer interrupt handler 
+    intptr_t arg{0};		// argument to pass to interrupt handler
 };
 
 #endif // TIMER_H

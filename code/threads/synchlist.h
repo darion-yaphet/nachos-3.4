@@ -14,6 +14,7 @@
 #include "copyright.h"
 #include "list.h"
 #include "synch.h"
+#include <memory>
 
 // The following class defines a "synchronized list" -- a list for which:
 // these constraints hold:
@@ -26,6 +27,10 @@ class SynchList {
     SynchList();		// initialize a synchronized list
     ~SynchList();		// de-allocate a synchronized list
 
+    // Non-copyable
+    SynchList(const SynchList &) = delete;
+    SynchList &operator=(const SynchList &) = delete;
+
     void Append(void *item);	// append item to the end of the list,
 				// and wake up any thread waiting in remove
     void *Remove();		// remove the first item from the front of
@@ -33,10 +38,21 @@ class SynchList {
 				// apply function to every item in the list
     void Mapcar(VoidFunctionPtr func);
 
+    // Modern C++ template convenience helpers
+    template <typename T>
+    void Append(T *item) {
+        Append(static_cast<void *>(item));
+    }
+
+    template <typename T>
+    T *RemoveAs() {
+        return static_cast<T *>(Remove());
+    }
+
   private:
-    List *list;			// the unsynchronized list
-    Lock *lock;			// enforce mutual exclusive access to the list
-    Condition *listEmpty;	// wait in Remove if the list is empty
+    std::unique_ptr<List> list;			// the unsynchronized list
+    std::unique_ptr<Lock> lock;			// enforce mutual exclusive access to the list
+    std::unique_ptr<Condition> listEmpty;	// wait in Remove if the list is empty
 };
 
 #endif // SYNCHLIST_H

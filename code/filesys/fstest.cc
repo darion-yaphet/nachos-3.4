@@ -21,7 +21,7 @@
 #include "disk.h"
 #include "stats.h"
 
-#define TransferSize 	10 	// make it small, just to be difficult
+constexpr int TransferSize = 10; 	// make it small, just to be difficult
 
 //----------------------------------------------------------------------
 // Copy
@@ -29,15 +29,15 @@
 //----------------------------------------------------------------------
 
 void
-Copy(char *from, char *to)
+Copy(const char *from, const char *to)
 {
     FILE *fp;
     OpenFile* openFile;
     int amountRead, fileLength;
-    char *buffer;
+    char buffer[TransferSize];
 
 // Open UNIX file
-    if ((fp = fopen(from, "r")) == NULL) {	 
+    if ((fp = fopen(from, "r")) == nullptr) {	 
 	printf("Copy: couldn't open input file %s\n", from);
 	return;
     }
@@ -56,13 +56,11 @@ Copy(char *from, char *to)
     }
     
     openFile = fileSystem->Open(to);
-    ASSERT(openFile != NULL);
+    ASSERT(openFile != nullptr);
     
 // Copy the data in TransferSize chunks
-    buffer = new char[TransferSize];
     while ((amountRead = fread(buffer, sizeof(char), TransferSize, fp)) > 0)
 	openFile->Write(buffer, amountRead);	
-    delete [] buffer;
 
 // Close the UNIX and the Nachos files
     delete openFile;
@@ -75,22 +73,20 @@ Copy(char *from, char *to)
 //----------------------------------------------------------------------
 
 void
-Print(char *name)
+Print(const char *name)
 {
     OpenFile *openFile;    
-    int i, amountRead;
-    char *buffer;
+    int amountRead;
+    char buffer[TransferSize];
 
-    if ((openFile = fileSystem->Open(name)) == NULL) {
+    if ((openFile = fileSystem->Open(name)) == nullptr) {
 	printf("Print: unable to open file %s\n", name);
 	return;
     }
     
-    buffer = new char[TransferSize];
     while ((amountRead = openFile->Read(buffer, TransferSize)) > 0)
-	for (i = 0; i < amountRead; i++)
+	for (int i = 0; i < amountRead; i++)
 	    printf("%c", buffer[i]);
-    delete [] buffer;
 
     delete openFile;		// close the Nachos file
     return;
@@ -108,10 +104,10 @@ Print(char *name)
 //	  PerformanceTest -- overall control, and print out performance #'s
 //----------------------------------------------------------------------
 
-#define FileName 	"TestFile"
-#define Contents 	"1234567890"
-#define ContentSize 	strlen(Contents)
-#define FileSize 	((int)(ContentSize * 5000))
+static const char FileName[] = "TestFile";
+static const char Contents[] = "1234567890";
+constexpr int ContentSize = sizeof("1234567890") - 1;
+constexpr int FileSize = ContentSize * 5000;
 
 static void 
 FileWrite()
@@ -126,7 +122,7 @@ FileWrite()
       return;
     }
     openFile = fileSystem->Open(FileName);
-    if (openFile == NULL) {
+    if (openFile == nullptr) {
 	printf("Perf test: unable to open %s\n", FileName);
 	return;
     }
@@ -145,27 +141,24 @@ static void
 FileRead()
 {
     OpenFile *openFile;    
-    char *buffer = new char[ContentSize];
-    int i, numBytes;
+    char buffer[ContentSize];
+    int numBytes;
 
     printf("Sequential read of %d byte file, in %d byte chunks\n", 
 	FileSize, ContentSize);
 
-    if ((openFile = fileSystem->Open(FileName)) == NULL) {
+    if ((openFile = fileSystem->Open(FileName)) == nullptr) {
 	printf("Perf test: unable to open file %s\n", FileName);
-	delete [] buffer;
 	return;
     }
-    for (i = 0; i < FileSize; i += ContentSize) {
+    for (int i = 0; i < FileSize; i += ContentSize) {
         numBytes = openFile->Read(buffer, ContentSize);
 	if ((numBytes < 10) || strncmp(buffer, Contents, ContentSize)) {
 	    printf("Perf test: unable to read %s\n", FileName);
 	    delete openFile;
-	    delete [] buffer;
 	    return;
 	}
     }
-    delete [] buffer;
     delete openFile;	// close file
 }
 

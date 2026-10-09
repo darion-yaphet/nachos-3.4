@@ -24,64 +24,67 @@
 #define UTILITY_H
 
 #include "copyright.h"
-#include <stdint.h>
+#include <cstdint>
+#include <cstddef>
 
 // Miscellaneous useful routines
 
-// Modern C++ provides bool as a built-in type.  The original g++ bool.h
-// header is no longer shipped, but the codebase still uses its TRUE/FALSE
-// spellings.
+// Modern C++ provides bool as a built-in type.
+#ifndef TRUE
 #define TRUE true
+#endif
+#ifndef FALSE
 #define FALSE false
+#endif
 
-#define min(a,b)  (((a) < (b)) ? (a) : (b))
-#define max(a,b)  (((a) > (b)) ? (a) : (b))
+// Safe constexpr template functions replacing legacy preprocessor macros
+template <typename T, typename U>
+constexpr auto min(const T& a, const U& b) {
+    return (a < b) ? a : b;
+}
+
+template <typename T, typename U>
+constexpr auto max(const T& a, const U& b) {
+    return (a > b) ? a : b;
+}
 
 // Divide and either round up or down 
-#define divRoundDown(n,s)  ((n) / (s))
-#define divRoundUp(n,s)    (((n) / (s)) + ((((n) % (s)) > 0) ? 1 : 0))
+template <typename T, typename S>
+constexpr auto divRoundDown(T n, S s) noexcept {
+    return static_cast<decltype(n / s)>(n / s);
+}
 
-// This declares the type "VoidFunctionPtr" to be a "pointer to a
-// function taking an integer argument and returning nothing".  With
-// such a function pointer (say it is "func"), we can call it like this:
-//
-//	(*func) (17);
-//
-// This is used by Thread::Fork and for interrupt handlers, as well
-// as a couple of other places.
+template <typename T, typename S>
+constexpr auto divRoundUp(T n, S s) noexcept {
+    return static_cast<decltype(n / s)>((n / s) + (((n % s) > 0) ? 1 : 0));
+}
 
-typedef void (*VoidFunctionPtr)(intptr_t arg); 
-typedef void (*VoidNoArgFunctionPtr)(); 
-
+// Modern function pointer aliases
+using VoidFunctionPtr = void (*)(intptr_t arg); 
+using VoidNoArgFunctionPtr = void (*)(); 
 
 // Include interface that isolates us from the host machine system library.
 // Requires definition of bool, and VoidFunctionPtr
 #include "sysdep.h"				
 
 // Interface to debugging routines.
-
-extern void DebugInit(char* flags);	// enable printing debug messages
-
+extern void DebugInit(const char* flags);	// enable printing debug messages
 extern bool DebugIsEnabled(char flag); 	// Is this debug flag enabled?
-
-extern void DEBUG (char flag, char* format, ...);  	// Print debug message 
-							// if flag is enabled
+extern void DEBUG(char flag, const char* format, ...) __attribute__((__format__(__printf__, 2, 3)));  	// Print debug message 
 
 //----------------------------------------------------------------------
 // ASSERT
-//      If condition is false,  print a message and dump core.
-//	Useful for documenting assumptions in the code.
-//
-//	NOTE: needs to be a #define, to be able to print the location 
-//	where the error occurred.
+//      If condition is false, print a message and dump core.
+//      Uses do-while(0) to prevent dangling else ambiguities.
 //----------------------------------------------------------------------
 #define ASSERT(condition)                                                     \
-    if (!(condition)) {                                                       \
-        fprintf(stderr, "Assertion failed: line %d, file \"%s\"\n",           \
-                __LINE__, __FILE__);                                          \
-	fflush(stderr);							      \
-        Abort();                                                              \
-    }
+    do {                                                                      \
+        if (!(condition)) {                                                   \
+            fprintf(stderr, "Assertion failed: line %d, file \"%s\"\n",       \
+                    __LINE__, __FILE__);                                      \
+            fflush(stderr);                                                   \
+            Abort();                                                          \
+        }                                                                     \
+    } while (0)
 
-
-#endif UTILITY_H
+#endif // UTILITY_H

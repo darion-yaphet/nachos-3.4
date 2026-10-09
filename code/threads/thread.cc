@@ -32,14 +32,14 @@
 //	"threadName" is an arbitrary string, useful for debugging.
 //----------------------------------------------------------------------
 
-Thread::Thread(char* threadName)
+Thread::Thread(const char* threadName)
 {
     name = threadName;
-    stackTop = NULL;
-    stack = NULL;
+    stackTop = nullptr;
+    stack = nullptr;
     status = JUST_CREATED;
 #ifdef USER_PROGRAM
-    space = NULL;
+    space = nullptr;
 #endif
 }
 
@@ -57,10 +57,10 @@ Thread::Thread(char* threadName)
 
 Thread::~Thread()
 {
-    DEBUG('t', "Deleting thread \"%s\"\n", name);
+    DEBUG('t', "Deleting thread \"%s\"\n", name ? name : "unnamed");
 
     ASSERT(this != currentThread);
-    if (stack != NULL)
+    if (stack != nullptr)
 	DeallocBoundedArray((char *) stack, StackSize * sizeof(int));
 }
 
@@ -114,9 +114,9 @@ Thread::Fork(VoidFunctionPtr func, intptr_t arg)
 //----------------------------------------------------------------------
 
 void
-Thread::CheckOverflow()
+Thread::CheckOverflow() const
 {
-    if (stack != NULL)
+    if (stack != nullptr)
 #ifdef HOST_SNAKE			// Stacks grow upward on the Snakes
 	ASSERT(stack[StackSize - 1] == STACK_FENCEPOST);
 #else
@@ -182,7 +182,7 @@ Thread::Yield ()
     DEBUG('t', "Yielding thread \"%s\"\n", getName());
     
     nextThread = scheduler->FindNextToRun();
-    if (nextThread != NULL) {
+    if (nextThread != nullptr) {
 	scheduler->ReadyToRun(this);
 	scheduler->Run(nextThread);
     }
@@ -219,7 +219,7 @@ Thread::Sleep ()
     DEBUG('t', "Sleeping thread \"%s\"\n", getName());
 
     status = BLOCKED;
-    while ((nextThread = scheduler->FindNextToRun()) == NULL)
+    while ((nextThread = scheduler->FindNextToRun()) == nullptr)
 	interrupt->Idle();	// no one to run, wait for an interrupt
         
     scheduler->Run(nextThread); // returns when we've been signalled
@@ -235,7 +235,7 @@ Thread::Sleep ()
 
 static void ThreadFinish()    { currentThread->Finish(); }
 static void InterruptEnable() { interrupt->Enable(); }
-void ThreadPrint(intptr_t arg){ Thread *t = (Thread *)arg; t->Print(); }
+void ThreadPrint(intptr_t arg){ auto *t = reinterpret_cast<Thread *>(arg); t->Print(); }
 
 //----------------------------------------------------------------------
 // Thread::StackAllocate
@@ -258,11 +258,18 @@ Thread::StackAllocate (VoidFunctionPtr func, intptr_t arg)
     *stack = STACK_FENCEPOST;
     rootFunction = func;
     rootArgument = arg;
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+#endif
     getcontext(&context);
     context.uc_stack.ss_sp = stack + 1;
     context.uc_stack.ss_size = (StackSize - 1) * sizeof(int);
-    context.uc_link = NULL;
+    context.uc_link = nullptr;
     makecontext(&context, ThreadRoot, 0);
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
 #else
 
 #ifdef HOST_SNAKE

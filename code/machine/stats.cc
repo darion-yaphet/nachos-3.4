@@ -11,18 +11,7 @@
 #include "utility.h"
 #include "stats.h"
 
-//----------------------------------------------------------------------
-// Statistics::Statistics
-// 	Initialize performance metrics to zero, at system startup.
-//----------------------------------------------------------------------
 
-Statistics::Statistics()
-{
-    totalTicks = idleTicks = systemTicks = userTicks = 0;
-    numDiskReads = numDiskWrites = 0;
-    numConsoleCharsRead = numConsoleCharsWritten = 0;
-    numPageFaults = numPacketsSent = numPacketsRecvd = 0;
-}
 
 //----------------------------------------------------------------------
 // Statistics::Print
@@ -31,7 +20,7 @@ Statistics::Statistics()
 //----------------------------------------------------------------------
 
 void
-Statistics::Print()
+Statistics::Print() const
 {
     printf("Ticks: total %d, idle %d, system %d, user %d\n", totalTicks, 
 	idleTicks, systemTicks, userTicks);

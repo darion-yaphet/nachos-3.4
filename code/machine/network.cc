@@ -13,9 +13,9 @@
 
 // Dummy functions because C++ can't call member functions indirectly 
 static void NetworkReadPoll(intptr_t arg)
-{ Network *net = (Network *)arg; net->CheckPktAvail(); }
+{ Network *net = reinterpret_cast<Network *>(arg); net->CheckPktAvail(); }
 static void NetworkSendDone(intptr_t arg)
-{ Network *net = (Network *)arg; net->SendDone(); }
+{ Network *net = reinterpret_cast<Network *>(arg); net->SendDone(); }
 
 // Initialize the network emulation
 //   addr is used to generate the socket name
@@ -33,7 +33,7 @@ Network::Network(NetworkAddress addr, double reliability,
     writeHandler = writeDone;
     readHandler = readAvail;
     handlerArg = callArg;
-    sendBusy = FALSE;
+    sendBusy = false;
     inHdr.length = 0;
     
     sock = OpenSocket();
@@ -66,14 +66,13 @@ Network::CheckPktAvail()
 	return;
 
     // otherwise, read packet in
-    char *buffer = new char[MaxWireSize];
+    char buffer[MaxWireSize];
     ReadFromSocket(sock, buffer, MaxWireSize);
 
     // divide packet into header and data
-    inHdr = *(PacketHeader *)buffer;
+    inHdr = *reinterpret_cast<const PacketHeader *>(buffer);
     ASSERT((inHdr.to == ident) && (inHdr.length <= MaxPacketSize));
     memmove(inbox, buffer + sizeof(PacketHeader), inHdr.length);
-    delete []buffer ;
 
     DEBUG('n', "Network received packet from %d, length %d...\n",
 	  				(int) inHdr.from, inHdr.length);
@@ -87,7 +86,7 @@ Network::CheckPktAvail()
 void
 Network::SendDone()
 {
-    sendBusy = FALSE;
+    sendBusy = false;
     stats->numPacketsSent++;
     (*writeHandler)(handlerArg);
 }
@@ -98,13 +97,13 @@ Network::SendDone()
 // Note we always pad out a packet to MaxWireSize before putting it into
 // the socket, because it's simpler at the receive end.
 void
-Network::Send(PacketHeader hdr, char* data)
+Network::Send(PacketHeader hdr, const char* data)
 {
     char toName[32];
 
     sprintf(toName, "SOCKET_%d", (int)hdr.to);
     
-    ASSERT((sendBusy == FALSE) && (hdr.length > 0) 
+    ASSERT((sendBusy == false) && (hdr.length > 0) 
 		&& (hdr.length <= MaxPacketSize) && (hdr.from == ident));
     DEBUG('n', "Sending to addr %d, %d bytes... ", hdr.to, hdr.length);
 
@@ -116,11 +115,10 @@ Network::Send(PacketHeader hdr, char* data)
     }
 
     // concatenate hdr and data into a single buffer, and send it out
-    char *buffer = new char[MaxWireSize];
-    *(PacketHeader *)buffer = hdr;
+    char buffer[MaxWireSize];
+    *reinterpret_cast<PacketHeader *>(buffer) = hdr;
     memmove(buffer + sizeof(PacketHeader), data, hdr.length);
     SendToSocket(sock, buffer, MaxWireSize, toName);
-    delete []buffer;
 }
 
 // read a packet, if one is buffered

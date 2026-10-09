@@ -18,6 +18,7 @@
 
 #include "copyright.h"
 #include "post.h"
+#include "synch.h"
 
 //----------------------------------------------------------------------
 // Mail::Mail
@@ -26,15 +27,13 @@
 //
 //	"pktH" -- source, destination machine ID's
 //	"mailH" -- source, destination mailbox ID's
-//	"data" -- payload data
+//	"msgData" -- payload data
 //----------------------------------------------------------------------
 
-Mail::Mail(PacketHeader pktH, MailHeader mailH, char *msgData)
+Mail::Mail(PacketHeader pktH, MailHeader mailH, const char *msgData)
+    : pktHdr(pktH), mailHdr(mailH)
 {
     ASSERT(mailH.length <= MaxMailSize);
-
-    pktHdr = pktH;
-    mailHdr = mailH;
     memmove(data, msgData, mailHdr.length);
 }
 
@@ -45,7 +44,6 @@ Mail::Mail(PacketHeader pktH, MailHeader mailH, char *msgData)
 //
 //	Just initialize a list of messages, representing the mailbox.
 //----------------------------------------------------------------------
-
 
 MailBox::MailBox()
 { 
@@ -95,11 +93,11 @@ PrintHeader(PacketHeader pktHdr, MailHeader mailHdr)
 //----------------------------------------------------------------------
 
 void 
-MailBox::Put(PacketHeader pktHdr, MailHeader mailHdr, char *data)
+MailBox::Put(PacketHeader pktHdr, MailHeader mailHdr, const char *data)
 { 
     Mail *mail = new Mail(pktHdr, mailHdr, data); 
 
-    messages->Append((void *)mail);	// put on the end of the list of 
+    messages->Append(reinterpret_cast<void *>(mail));	// put on the end of the list of 
 					// arrived messages, and wake up 
 					// any waiters
 }
@@ -120,7 +118,7 @@ void
 MailBox::Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data) 
 { 
     DEBUG('n', "Waiting for mail in mailbox\n");
-    Mail *mail = (Mail *) messages->Remove();	// remove message from list;
+    Mail *mail = reinterpret_cast<Mail *>(messages->Remove());	// remove message from list;
 						// will wait if list is empty
 
     *pktHdr = mail->pktHdr;
@@ -146,11 +144,11 @@ MailBox::Get(PacketHeader *pktHdr, MailHeader *mailHdr, char *data)
 //----------------------------------------------------------------------
 
 static void PostalHelper(intptr_t arg)
-{ PostOffice* po = (PostOffice *) arg; po->PostalDelivery(); }
+{ PostOffice* po = reinterpret_cast<PostOffice *>(arg); po->PostalDelivery(); }
 static void ReadAvail(intptr_t arg)
-{ PostOffice* po = (PostOffice *) arg; po->IncomingPacket(); }
+{ PostOffice* po = reinterpret_cast<PostOffice *>(arg); po->IncomingPacket(); }
 static void WriteDone(intptr_t arg)
-{ PostOffice* po = (PostOffice *) arg; po->PacketSent(); }
+{ PostOffice* po = reinterpret_cast<PostOffice *>(arg); po->PacketSent(); }
 
 //----------------------------------------------------------------------
 // PostOffice::PostOffice
@@ -172,6 +170,7 @@ static void WriteDone(intptr_t arg)
 //----------------------------------------------------------------------
 
 PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
+    : netAddr(addr), numBoxes(nBoxes)
 {
 // First, initialize the synchronization with the interrupt handlers
     messageAvailable = new Semaphore("message available", 0);
@@ -179,19 +178,15 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
     sendLock = new Lock("message send lock");
 
 // Second, initialize the mailboxes
-    netAddr = addr; 
-    numBoxes = nBoxes;
     boxes = new MailBox[nBoxes];
 
 // Third, initialize the network; tell it which interrupt handlers to call
-    network = new Network(addr, reliability, ReadAvail, WriteDone, (intptr_t) this);
-
+    network = new Network(addr, reliability, ReadAvail, WriteDone, reinterpret_cast<intptr_t>(this));
 
 // Finally, create a thread whose sole job is to wait for incoming messages,
 //   and put them in the right mailbox. 
     Thread *t = new Thread("postal worker");
-
-    t->Fork(PostalHelper, (intptr_t) this);
+    t->Fork(PostalHelper, reinterpret_cast<intptr_t>(this));
 }
 
 //----------------------------------------------------------------------
@@ -221,14 +216,14 @@ PostOffice::PostalDelivery()
 {
     PacketHeader pktHdr;
     MailHeader mailHdr;
-    char *buffer = new char[MaxPacketSize];
+    char buffer[MaxPacketSize];
 
     for (;;) {
         // first, wait for a message
         messageAvailable->P();	
         pktHdr = network->Receive(buffer);
 
-        mailHdr = *(MailHeader *)buffer;
+        mailHdr = *reinterpret_cast<const MailHeader *>(buffer);
         if (DebugIsEnabled('n')) {
 	    printf("Putting mail into mailbox: ");
 	    PrintHeader(pktHdr, mailHdr);
@@ -257,10 +252,10 @@ PostOffice::PostalDelivery()
 //----------------------------------------------------------------------
 
 void
-PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
+PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, const char* data)
 {
-    char* buffer = new char[MaxPacketSize];	// space to hold concatenated
-						// mailHdr + data
+    char buffer[MaxPacketSize];	// space to hold concatenated
+				// mailHdr + data
 
     if (DebugIsEnabled('n')) {
 	printf("Post send: ");
@@ -277,19 +272,17 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, char* data)
     memmove(buffer, &mailHdr, sizeof(MailHeader));
     memmove(buffer + sizeof(MailHeader), data, mailHdr.length);
 
-    sendLock->Acquire();   		// only one message can be sent
+    {
+        LockGuard guard(sendLock);   	// only one message can be sent
 					// to the network at any one time
-    network->Send(pktHdr, buffer);
-    messageSent->P();			// wait for interrupt to tell us
+        network->Send(pktHdr, buffer);
+        messageSent->P();		// wait for interrupt to tell us
 					// ok to send the next message
-    sendLock->Release();
-
-    delete [] buffer;			// we've sent the message, so
-					// we can delete our buffer
+    }
 }
 
 //----------------------------------------------------------------------
-// PostOffice::Send
+// PostOffice::Receive
 // 	Retrieve a message from a specific box if one is available, 
 //	otherwise wait for a message to arrive in the box.
 //

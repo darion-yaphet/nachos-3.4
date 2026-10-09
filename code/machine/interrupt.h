@@ -58,15 +58,16 @@ enum IntType { TimerInt, DiskInt, ConsoleWriteInt, ConsoleReadInt,
 
 class PendingInterrupt {
   public:
-    PendingInterrupt(VoidFunctionPtr func, intptr_t param, int time, IntType kind);
+    PendingInterrupt(VoidFunctionPtr func, intptr_t param, int time, IntType kind)
+        : handler(func), arg(param), when(time), type(kind) {}
 				// initialize an interrupt that will
 				// occur in the future
 
-    VoidFunctionPtr handler;    // The function (in the hardware device
+    VoidFunctionPtr handler{nullptr};    // The function (in the hardware device
 				// emulator) to call when the interrupt occurs
-    intptr_t arg;               // The argument to the function.
-    int when;			// When the interrupt is supposed to fire
-    IntType type;		// for debugging
+    intptr_t arg{0};               // The argument to the function.
+    int when{0};			// When the interrupt is supposed to fire
+    IntType type{TimerInt};		// for debugging
 };
 
 // The following class defines the data structures for the simulation
@@ -78,13 +79,15 @@ class Interrupt {
   public:
     Interrupt();			// initialize the interrupt simulation
     ~Interrupt();			// de-allocate data structures
+
+    Interrupt(const Interrupt&) = delete;
+    Interrupt& operator=(const Interrupt&) = delete;
     
     IntStatus SetLevel(IntStatus level);// Disable or enable interrupts 
 					// and return previous setting.
 
     void Enable();			// Enable interrupts.
-    IntStatus getLevel() {return level;}// Return whether interrupts
-					// are enabled or disabled
+    [[nodiscard]] IntStatus getLevel() const noexcept { return level; }
     
     void Idle(); 			// The ready queue is empty, roll 
 					// simulated time forward until the 
@@ -95,10 +98,10 @@ class Interrupt {
     void YieldOnReturn();		// cause a context switch on return 
 					// from an interrupt handler
 
-    MachineStatus getStatus() { return status; } // idle, kernel, user
-    void setStatus(MachineStatus st) { status = st; }
+    [[nodiscard]] MachineStatus getStatus() const noexcept { return status; }
+    void setStatus(MachineStatus st) noexcept { status = st; }
 
-    void DumpState();			// Print interrupt state
+    void DumpState() const;			// Print interrupt state
     
 
     // NOTE: the following are internal to the hardware simulation code.
@@ -113,13 +116,13 @@ class Interrupt {
     void OneTick();       		// Advance simulated time
 
   private:
-    IntStatus level;		// are interrupts enabled or disabled?
-    List *pending;		// the list of interrupts scheduled
+    IntStatus level{IntOff};		// are interrupts enabled or disabled?
+    List *pending{nullptr};		// the list of interrupts scheduled
 				// to occur in the future
-    bool inHandler;		// TRUE if we are running an interrupt handler
-    bool yieldOnReturn; 	// TRUE if we are to context switch
+    bool inHandler{false};		// TRUE if we are running an interrupt handler
+    bool yieldOnReturn{false}; 	// TRUE if we are to context switch
 				// on return from the interrupt handler
-    MachineStatus status;	// idle, kernel mode, user mode
+    MachineStatus status{SystemMode};	// idle, kernel mode, user mode
 
     // these functions are internal to the interrupt simulation code
 

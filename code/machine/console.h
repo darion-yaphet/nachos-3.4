@@ -37,10 +37,13 @@
 
 class Console {
   public:
-    Console(char *readFile, char *writeFile, VoidFunctionPtr readAvail, 
+    Console(const char *readFile, const char *writeFile, VoidFunctionPtr readAvail, 
 	VoidFunctionPtr writeDone, intptr_t callArg);
 				// initialize the hardware console device
     ~Console();			// clean up console emulation
+
+    Console(const Console&) = delete;
+    Console& operator=(const Console&) = delete;
 
 // external interface -- Nachos kernel code can call these
     void PutChar(char ch);	// Write "ch" to the console display, 
@@ -57,17 +60,17 @@ class Console {
     void CheckCharAvail();
 
   private:
-    int readFileNo;			// UNIX file emulating the keyboard 
-    int writeFileNo;			// UNIX file emulating the display
-    VoidFunctionPtr writeHandler; 	// Interrupt handler to call when 
+    int readFileNo{0};			// UNIX file emulating the keyboard 
+    int writeFileNo{0};			// UNIX file emulating the display
+    VoidFunctionPtr writeHandler{nullptr}; 	// Interrupt handler to call when 
 					// the PutChar I/O completes
-    VoidFunctionPtr readHandler; 	// Interrupt handler to call when 
+    VoidFunctionPtr readHandler{nullptr}; 	// Interrupt handler to call when 
 					// a character arrives from the keyboard
-    intptr_t handlerArg;		// argument to be passed to the 
+    intptr_t handlerArg{0};		// argument to be passed to the 
 					// interrupt handlers
-    bool putBusy;    			// Is a PutChar operation in progress?
+    bool putBusy{false};    		// Is a PutChar operation in progress?
 					// If so, you can't do another one!
-    char incoming;    			// Contains the character to be read,
+    char incoming{0};    		// Contains the character to be read,
 					// if there is one available. 
 					// Otherwise contains EOF.
 };

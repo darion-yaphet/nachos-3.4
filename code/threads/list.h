@@ -26,12 +26,13 @@
 
 class ListElement {
    public:
-     ListElement(void *itemPtr, int sortKey);	// initialize a list element
+     ListElement(void *itemPtr, int sortKey)
+         : next(nullptr), key(sortKey), item(itemPtr) {}
 
-     ListElement *next;		// next element on list, 
-				// NULL if this is the last
-     int key;		    	// priority, for a sorted list
-     void *item; 	    	// pointer to item on the list
+     ListElement *next = nullptr;		// next element on list, 
+ 				// nullptr if this is the last
+     int key = 0;		    	// priority, for a sorted list
+     void *item = nullptr; 	    	// pointer to item on the list
 };
 
 // The following class defines a "list" -- a singly linked list of
@@ -42,8 +43,14 @@ class ListElement {
 
 class List {
   public:
-    List();			// initialize the list
+    List() = default;			// initialize the list
     ~List();			// de-allocate the list
+
+    // Non-copyable
+    List(const List &) = delete;
+    List &operator=(const List &) = delete;
+    List(List &&) noexcept = default;
+    List &operator=(List &&) noexcept = default;
 
     void Prepend(void *item); 	// Put item at the beginning of the list
     void Append(void *item); 	// Put item at the end of the list
@@ -51,16 +58,32 @@ class List {
 
     void Mapcar(VoidFunctionPtr func);	// Apply "func" to every element 
 					// on the list
-    bool IsEmpty();		// is the list empty? 
+    [[nodiscard]] bool IsEmpty() const noexcept;		// is the list empty? 
     
 
     // Routines to put/get items on/off list in order (sorted by key)
     void SortedInsert(void *item, int sortKey);	// Put item into list
-    void *SortedRemove(int *keyPtr); 	  	// Remove first item from list
+    void *SortedRemove(int *keyPtr = nullptr); 	  	// Remove first item from list
+
+    // Modern C++ template convenience helpers
+    template <typename T>
+    void Append(T *item) {
+        Append(static_cast<void *>(item));
+    }
+
+    template <typename T>
+    void Prepend(T *item) {
+        Prepend(static_cast<void *>(item));
+    }
+
+    template <typename T>
+    T *RemoveAs() {
+        return static_cast<T *>(Remove());
+    }
 
   private:
-    ListElement *first;  	// Head of the list, NULL if list is empty
-    ListElement *last;		// Last element of list
+    ListElement *first = nullptr;  	// Head of the list, nullptr if list is empty
+    ListElement *last = nullptr;		// Last element of list
 };
 
 #endif // LIST_H

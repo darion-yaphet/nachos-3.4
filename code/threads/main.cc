@@ -56,9 +56,9 @@
 
 // External functions used by this file
 
-extern void ThreadTest(void), Copy(char *unixFile, char *nachosFile);
-extern void Print(char *file), PerformanceTest(void);
-extern void StartProcess(char *file), ConsoleTest(char *in, char *out);
+extern void ThreadTest(void), Copy(const char *unixFile, const char *nachosFile);
+extern void Print(const char *file), PerformanceTest(void);
+extern void StartProcess(const char *file), ConsoleTest(const char *in, const char *out);
 extern void MailTest(int networkID);
 
 //----------------------------------------------------------------------
@@ -91,7 +91,7 @@ main(int argc, char **argv)
     for (argc--, argv++; argc > 0; argc -= argCount, argv += argCount) {
 	argCount = 1;
         if (!strcmp(*argv, "-z"))               // print copyright
-            printf (copyright);
+            printf ("%s", copyright);
 #ifdef USER_PROGRAM
         if (!strcmp(*argv, "-x")) {        	// run a user program
 	    ASSERT(argc > 1);
@@ -99,7 +99,7 @@ main(int argc, char **argv)
             argCount = 2;
         } else if (!strcmp(*argv, "-c")) {      // test the console
 	    if (argc == 1)
-	        ConsoleTest(NULL, NULL);
+	        ConsoleTest(nullptr, nullptr);
 	    else {
 		ASSERT(argc > 2);
 	        ConsoleTest(*(argv + 1), *(argv + 2));

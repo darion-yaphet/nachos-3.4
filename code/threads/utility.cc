@@ -21,7 +21,7 @@
 #endif
 #endif
 
-static char *enableFlags = NULL; // controls which DEBUG messages are printed 
+static const char *enableFlags = nullptr; // controls which DEBUG messages are printed 
 
 //----------------------------------------------------------------------
 // DebugInit
@@ -35,7 +35,7 @@ static char *enableFlags = NULL; // controls which DEBUG messages are printed
 //----------------------------------------------------------------------
 
 void
-DebugInit(char *flagList)
+DebugInit(const char *flagList)
 {
     enableFlags = flagList;
 }
@@ -48,11 +48,11 @@ DebugInit(char *flagList)
 bool
 DebugIsEnabled(char flag)
 {
-    if (enableFlags != NULL)
-       return (strchr(enableFlags, flag) != 0) 
-		|| (strchr(enableFlags, '+') != 0);
-    else
-      return FALSE;
+    if (enableFlags != nullptr) {
+       return (strchr(enableFlags, flag) != nullptr) 
+		|| (strchr(enableFlags, '+') != nullptr);
+    }
+    return false;
 }
 
 //----------------------------------------------------------------------
@@ -62,11 +62,10 @@ DebugIsEnabled(char flag)
 //----------------------------------------------------------------------
 
 void 
-DEBUG(char flag, char *format, ...)
+DEBUG(char flag, const char *format, ...)
 {
     if (DebugIsEnabled(flag)) {
 	va_list ap;
-	// You will get an unused variable message here -- ignore it.
 	va_start(ap, format);
 	vfprintf(stdout, format, ap);
 	va_end(ap);

@@ -25,10 +25,9 @@
 //----------------------------------------------------------------------
 
 OpenFile::OpenFile(int sector)
+    : hdr(new FileHeader()), seekPosition(0)
 { 
-    hdr = new FileHeader;
     hdr->FetchFrom(sector);
-    seekPosition = 0;
 }
 
 //----------------------------------------------------------------------
@@ -77,7 +76,7 @@ OpenFile::Read(char *into, int numBytes)
 }
 
 int
-OpenFile::Write(char *into, int numBytes)
+OpenFile::Write(const char *into, int numBytes)
 {
    int result = WriteAt(into, numBytes, seekPosition);
    seekPosition += result;
@@ -141,7 +140,7 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 }
 
 int
-OpenFile::WriteAt(char *from, int numBytes, int position)
+OpenFile::WriteAt(const char *from, int numBytes, int position)
 {
     int fileLength = hdr->FileLength();
     int i, firstSector, lastSector, numSectors;
@@ -188,7 +187,7 @@ OpenFile::WriteAt(char *from, int numBytes, int position)
 //----------------------------------------------------------------------
 
 int
-OpenFile::Length() 
+OpenFile::Length() const
 { 
     return hdr->FileLength(); 
 }

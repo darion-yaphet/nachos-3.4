@@ -16,14 +16,17 @@
 #include "copyright.h"
 #include "filesys.h"
 
-#define UserStackSize		1024 	// increase this as necessary!
+constexpr int UserStackSize = 1024; 	// increase this as necessary!
 
 class AddrSpace {
   public:
-    AddrSpace(OpenFile *executable);	// Create an address space,
+    explicit AddrSpace(OpenFile *executable);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
     ~AddrSpace();			// De-allocate an address space
+
+    AddrSpace(const AddrSpace&) = delete;
+    AddrSpace& operator=(const AddrSpace&) = delete;
 
     void InitRegisters();		// Initialize user-level CPU registers,
 					// before jumping to user code
@@ -32,9 +35,9 @@ class AddrSpace {
     void RestoreState();		// info on a context switch 
 
   private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
+    TranslationEntry *pageTable{nullptr};	// Assume linear page table translation
 					// for now!
-    unsigned int numPages;		// Number of pages in the virtual 
+    unsigned int numPages{0};		// Number of pages in the virtual 
 					// address space
 };
 

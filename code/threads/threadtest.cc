@@ -27,7 +27,7 @@ SimpleThread(intptr_t which)
     int num;
     
     for (num = 0; num < 5; num++) {
-	printf("*** thread %d looped %d times\n", which, num);
+	printf("*** thread %ld looped %d times\n", static_cast<long>(which), num);
         currentThread->Yield();
     }
 }

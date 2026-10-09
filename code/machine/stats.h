@@ -21,24 +21,26 @@
 
 class Statistics {
   public:
-    int totalTicks;      	// Total time running Nachos
-    int idleTicks;       	// Time spent idle (no threads to run)
-    int systemTicks;	 	// Time spent executing system code
-    int userTicks;       	// Time spent executing user code
+    int totalTicks{0};      	// Total time running Nachos
+    int idleTicks{0};       	// Time spent idle (no threads to run)
+    int systemTicks{0};	 	// Time spent executing system code
+    int userTicks{0};       	// Time spent executing user code
 				// (this is also equal to # of
 				// user instructions executed)
 
-    int numDiskReads;		// number of disk read requests
-    int numDiskWrites;		// number of disk write requests
-    int numConsoleCharsRead;	// number of characters read from the keyboard
-    int numConsoleCharsWritten; // number of characters written to the display
-    int numPageFaults;		// number of virtual memory page faults
-    int numPacketsSent;		// number of packets sent over the network
-    int numPacketsRecvd;	// number of packets received over the network
+    int numDiskReads{0};		// number of disk read requests
+    int numDiskWrites{0};		// number of disk write requests
+    int numConsoleCharsRead{0};	// number of characters read from the keyboard
+    int numConsoleCharsWritten{0}; // number of characters written to the display
+    int numPageFaults{0};		// number of virtual memory page faults
+    int numPacketsSent{0};		// number of packets sent over the network
+    int numPacketsRecvd{0};	// number of packets received over the network
 
-    Statistics(); 		// initialize everything to zero
+    Statistics() = default; 	// initialize everything to zero
+    Statistics(const Statistics&) = delete;
+    Statistics& operator=(const Statistics&) = delete;
 
-    void Print();		// print collected statistics
+    void Print() const;		// print collected statistics
 };
 
 // Constants used to reflect the relative time an operation would
@@ -49,12 +51,12 @@ class Statistics {
 // in the kernel measured by the number of calls to enable interrupts,
 // these time constants are none too exact.
 
-#define UserTick 	1	// advance for each user-level instruction 
-#define SystemTick 	10 	// advance each time interrupts are enabled
-#define RotationTime 	500 	// time disk takes to rotate one sector
-#define SeekTime 	500    	// time disk takes to seek past one track
-#define ConsoleTime 	100	// time to read or write one character
-#define NetworkTime 	100   	// time to send or receive one packet
-#define TimerTicks 	100    	// (average) time between timer interrupts
+constexpr int UserTick = 1; 	// advance for each user-level instruction 
+constexpr int SystemTick = 10; 	// advance each time interrupts are enabled
+constexpr int RotationTime = 500; 	// time disk takes to rotate one sector
+constexpr int SeekTime = 500;    	// time disk takes to seek past one track
+constexpr int ConsoleTime = 100;	// time to read or write one character
+constexpr int NetworkTime = 100;   	// time to send or receive one packet
+constexpr int TimerTicks = 100;    	// (average) time between timer interrupts
 
 #endif // STATS_H

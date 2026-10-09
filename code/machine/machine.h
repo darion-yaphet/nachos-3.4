@@ -28,13 +28,13 @@
 
 // Definitions related to the size, and format of user memory
 
-#define PageSize 	SectorSize 	// set the page size equal to
+constexpr int PageSize = SectorSize; 	// set the page size equal to
 					// the disk sector size, for
 					// simplicity
 
-#define NumPhysPages    32
-#define MemorySize 	(NumPhysPages * PageSize)
-#define TLBSize		4		// if there is a TLB, make it small
+constexpr int NumPhysPages = 32;
+constexpr int MemorySize = (NumPhysPages * PageSize);
+constexpr int TLBSize = 4;		// if there is a TLB, make it small
 
 enum ExceptionType { NoException,           // Everything ok!
 		     SyscallException,      // A program executed a system call.
@@ -57,19 +57,19 @@ enum ExceptionType { NoException,           // Everything ok!
 // any two instructions (thus we need to keep track of things like load
 // delay slots, etc.)
 
-#define StackReg	29	// User's stack pointer
-#define RetAddrReg	31	// Holds return address for procedure calls
-#define NumGPRegs	32	// 32 general purpose registers on MIPS
-#define HiReg		32	// Double register to hold multiply result
-#define LoReg		33
-#define PCReg		34	// Current program counter
-#define NextPCReg	35	// Next program counter (for branch delay) 
-#define PrevPCReg	36	// Previous program counter (for debugging)
-#define LoadReg		37	// The register target of a delayed load.
-#define LoadValueReg 	38	// The value to be loaded by a delayed load.
-#define BadVAddrReg	39	// The failing virtual address on an exception
+constexpr int StackReg = 29;	// User's stack pointer
+constexpr int RetAddrReg = 31;	// Holds return address for procedure calls
+constexpr int NumGPRegs = 32;	// 32 general purpose registers on MIPS
+constexpr int HiReg = 32;	// Double register to hold multiply result
+constexpr int LoReg = 33;
+constexpr int PCReg = 34;	// Current program counter
+constexpr int NextPCReg = 35;	// Next program counter (for branch delay) 
+constexpr int PrevPCReg = 36;	// Previous program counter (for debugging)
+constexpr int LoadReg = 37;	// The register target of a delayed load.
+constexpr int LoadValueReg = 38;	// The value to be loaded by a delayed load.
+constexpr int BadVAddrReg = 39;	// The failing virtual address on an exception
 
-#define NumTotalRegs 	40
+constexpr int NumTotalRegs = 40;
 
 // The following class defines an instruction, represented in both
 // 	undecoded binary form
@@ -82,13 +82,13 @@ class Instruction {
   public:
     void Decode();	// decode the binary representation of the instruction
 
-    unsigned int value; // binary representation of the instruction
+    unsigned int value{0}; // binary representation of the instruction
 
-    char opCode;     // Type of instruction.  This is NOT the same as the
-    		     // opcode field from the instruction: see defs in mips.h
-    char rs, rt, rd; // Three registers from instruction.
-    int extra;       // Immediate or target or shamt field or offset.
-                     // Immediates are sign-extended.
+    unsigned char opCode{0}; // Type of instruction.  This is NOT the same as the
+    		          // opcode field from the instruction: see defs in mips.h
+    unsigned char rs{0}, rt{0}, rd{0}; // Three registers from instruction.
+    int extra{0};            // Immediate or target or shamt field or offset.
+                          // Immediates are sign-extended.
 };
 
 // The following class defines the simulated host workstation hardware, as 
@@ -106,14 +106,17 @@ class Instruction {
 
 class Machine {
   public:
-    Machine(bool debug);	// Initialize the simulation of the hardware
+    explicit Machine(bool debug);	// Initialize the simulation of the hardware
 				// for running user programs
     ~Machine();			// De-allocate the data structures
+
+    Machine(const Machine&) = delete;
+    Machine& operator=(const Machine&) = delete;
 
 // Routines callable by the Nachos kernel
     void Run();	 		// Run a user program
 
-    int ReadRegister(int num);	// read the contents of a CPU register
+    [[nodiscard]] int ReadRegister(int num) const;	// read the contents of a CPU register
 
     void WriteRegister(int num, int value);
 				// store a value into a CPU register
@@ -144,7 +147,7 @@ class Machine {
 				// system call or other exception.  
 
     void Debugger();		// invoke the user program debugger
-    void DumpState();		// print the user CPU and memory state 
+    void DumpState() const;		// print the user CPU and memory state 
 
 
 // Data structures -- all of these are accessible to Nachos kernel code.
@@ -153,9 +156,9 @@ class Machine {
 // Note that *all* communication between the user program and the kernel 
 // are in terms of these data structures.
 
-    char *mainMemory;		// physical memory to store user program,
+    char *mainMemory{nullptr};		// physical memory to store user program,
 				// code and data, while executing
-    int registers[NumTotalRegs]; // CPU registers, for executing user programs
+    int registers[NumTotalRegs]{}; // CPU registers, for executing user programs
 
 
 // NOTE: the hardware translation of virtual addresses in the user program
@@ -176,16 +179,16 @@ class Machine {
 // Thus the TLB pointer should be considered as *read-only*, although 
 // the contents of the TLB are free to be modified by the kernel software.
 
-    TranslationEntry *tlb;		// this pointer should be considered 
+    TranslationEntry *tlb{nullptr};		// this pointer should be considered 
 					// "read-only" to Nachos kernel code
 
-    TranslationEntry *pageTable;
-    unsigned int pageTableSize;
+    TranslationEntry *pageTable{nullptr};
+    unsigned int pageTableSize{0};
 
   private:
-    bool singleStep;		// drop back into the debugger after each
+    bool singleStep{false};		// drop back into the debugger after each
 				// simulated instruction
-    int runUntilTime;		// drop back into the debugger when simulated
+    int runUntilTime{0};		// drop back into the debugger when simulated
 				// time reaches this value
 };
 

@@ -81,21 +81,28 @@ class Thread {
   private:
     // NOTE: DO NOT CHANGE the order of these first two members.
     // THEY MUST be in this position for SWITCH to work.
-    int* stackTop;			 // the current stack pointer
-    int machineState[MachineStateSize];  // all registers except for stackTop
+    int* stackTop = nullptr;			 // the current stack pointer
+#ifdef HOST_DARWIN_ARM64
+    [[maybe_unused]]
+#endif
+    int machineState[MachineStateSize] = {};  // all registers except for stackTop
 
 #ifdef HOST_DARWIN_ARM64
-    ucontext_t context;
-    VoidFunctionPtr rootFunction;
-    intptr_t rootArgument;
+    ucontext_t context = {};
+    VoidFunctionPtr rootFunction = nullptr;
+    intptr_t rootArgument = 0;
 #endif
 
   public:
-    Thread(char* debugName);		// initialize a Thread 
-    ~Thread(); 				// deallocate a Thread
-					// NOTE -- thread being deleted
-					// must not be running when delete 
-					// is called
+    explicit Thread(const char* debugName);	// initialize a Thread 
+    ~Thread(); 					// deallocate a Thread
+						// NOTE -- thread being deleted
+						// must not be running when delete 
+						// is called
+
+    // Non-copyable
+    Thread(const Thread &) = delete;
+    Thread &operator=(const Thread &) = delete;
 
     // basic thread operations
 
@@ -106,29 +113,30 @@ class Thread {
 						// relinquish the processor
     void Finish();  				// The thread is done executing
     
-    void CheckOverflow();   			// Check if thread has 
+    void CheckOverflow() const;   		// Check if thread has 
 						// overflowed its stack
-    void setStatus(ThreadStatus st) { status = st; }
-    char* getName() { return (name); }
-    void Print() { printf("%s, ", name); }
+    void setStatus(ThreadStatus st) noexcept { status = st; }
+    [[nodiscard]] ThreadStatus getStatus() const noexcept { return status; }
+    [[nodiscard]] const char* getName() const noexcept { return name; }
+    void Print() const { printf("%s, ", name ? name : "unnamed"); }
 
 #ifdef HOST_DARWIN_ARM64
-    ucontext_t *GetContext() { return &context; }
+    ucontext_t *GetContext() noexcept { return &context; }
     void RunThreadRoot();
 #endif
 
   private:
     // some of the private data for this class is listed above
     
-    int* stack; 	 		// Bottom of the stack 
-					// NULL if this is the main thread
-					// (If NULL, don't deallocate stack)
-    ThreadStatus status;		// ready, running or blocked
-    char* name;
+    int* stack = nullptr; 	 		// Bottom of the stack 
+						// nullptr if this is the main thread
+						// (If nullptr, don't deallocate stack)
+    ThreadStatus status = JUST_CREATED;		// ready, running or blocked
+    const char* name = nullptr;
 
     void StackAllocate(VoidFunctionPtr func, intptr_t arg);
-    					// Allocate a stack for thread.
-					// Used internally by Fork()
+    						// Allocate a stack for thread.
+						// Used internally by Fork()
 
 #ifdef USER_PROGRAM
 // A thread running a user program actually has *two* sets of CPU registers -- 
