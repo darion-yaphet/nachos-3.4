@@ -30,6 +30,7 @@
 
 #include "network.h"
 #include "synchlist.h"
+#include <memory>
 
 // Mailbox address -- uniquely identifies a mailbox on a given machine.
 // A mailbox is just a place for temporary storage for messages.
@@ -90,7 +91,7 @@ class MailBox {
 				// mailbox (and wait if there is no message 
 				// to get!)
   private:
-    SynchList *messages = nullptr;	// A mailbox is just a list of arrived messages
+    std::unique_ptr<SynchList> messages;	// A mailbox is just a list of arrived messages
 };
 
 // The following class defines a "Post Office", or a collection of 
@@ -107,6 +108,7 @@ class PostOffice {
     PostOffice(NetworkAddress addr, double reliability, int nBoxes);
 				// Allocate and initialize Post Office
 				//   "reliability" is how many packets
+				//   get dropped by the underlying network
 				//   get dropped by the underlying network
     ~PostOffice();		// De-allocate Post Office data
 
@@ -135,13 +137,13 @@ class PostOffice {
 				// PostalDelivery)
 
   private:
-    Network *network = nullptr;		// Physical network connection
+    std::unique_ptr<Network> network;		// Physical network connection
     NetworkAddress netAddr = 0;	// Network address of this machine
-    MailBox *boxes = nullptr;		// Table of mail boxes to hold incoming mail
+    std::unique_ptr<MailBox[]> boxes;		// Table of mail boxes to hold incoming mail
     int numBoxes = 0;		// Number of mail boxes
-    Semaphore *messageAvailable = nullptr;// V'ed when message has arrived from network
-    Semaphore *messageSent = nullptr;	// V'ed when next message can be sent to network
-    Lock *sendLock = nullptr;		// Only one outgoing message at a time
+    std::unique_ptr<Semaphore> messageAvailable;// V'ed when message has arrived from network
+    std::unique_ptr<Semaphore> messageSent;	// V'ed when next message can be sent to network
+    std::unique_ptr<Lock> sendLock;		// Only one outgoing message at a time
 };
 
 #endif

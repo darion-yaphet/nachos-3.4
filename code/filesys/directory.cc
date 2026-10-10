@@ -36,11 +36,10 @@
 //----------------------------------------------------------------------
 
 Directory::Directory(int size)
+    : tableSize(size), table(std::make_unique<DirectoryEntry[]>(size))
 {
-    table = new DirectoryEntry[size];
-    tableSize = size;
     for (int i = 0; i < tableSize; i++)
-	table[i].inUse = FALSE;
+	table[i].inUse = false;
 }
 
 //----------------------------------------------------------------------
@@ -48,10 +47,7 @@ Directory::Directory(int size)
 // 	De-allocate directory data structure.
 //----------------------------------------------------------------------
 
-Directory::~Directory()
-{ 
-    delete [] table;
-} 
+Directory::~Directory() = default;
 
 //----------------------------------------------------------------------
 // Directory::FetchFrom
@@ -63,7 +59,7 @@ Directory::~Directory()
 void
 Directory::FetchFrom(OpenFile *file)
 {
-    file->ReadAt(reinterpret_cast<char *>(table), tableSize * sizeof(DirectoryEntry), 0);
+    file->ReadAt(reinterpret_cast<char *>(table.get()), tableSize * sizeof(DirectoryEntry), 0);
 }
 
 //----------------------------------------------------------------------
@@ -76,7 +72,7 @@ Directory::FetchFrom(OpenFile *file)
 void
 Directory::WriteBack(OpenFile *file)
 {
-    file->WriteAt(reinterpret_cast<char *>(table), tableSize * sizeof(DirectoryEntry), 0);
+    file->WriteAt(reinterpret_cast<char *>(table.get()), tableSize * sizeof(DirectoryEntry), 0);
 }
 
 //----------------------------------------------------------------------

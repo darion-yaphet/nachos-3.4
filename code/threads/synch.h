@@ -20,6 +20,7 @@
 #include "copyright.h"
 #include "thread.h"
 #include "list.h"
+#include <memory>
 
 // The following class defines a "semaphore" whose value is a non-negative
 // integer.  The semaphore has only two operations P() and V():
@@ -53,7 +54,7 @@ class Semaphore {
   private:
     const char* name = nullptr;        // useful for debugging
     int value = 0;                     // semaphore value, always >= 0
-    List *queue = nullptr;             // threads waiting in P() for the value to be > 0
+    std::unique_ptr<List> queue;       // threads waiting in P() for the value to be > 0
 };
 
 // The following class defines a "lock".  A lock can be BUSY or FREE.

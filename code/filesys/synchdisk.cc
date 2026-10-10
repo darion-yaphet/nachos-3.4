@@ -24,10 +24,9 @@
 //----------------------------------------------------------------------
 
 static void
-DiskRequestDone (intptr_t arg)
+DiskRequestDone(intptr_t arg)
 {
-    SynchDisk* disk = (SynchDisk *)arg;
-
+    auto* disk = reinterpret_cast<SynchDisk *>(arg);
     disk->RequestDone();
 }
 
@@ -42,9 +41,9 @@ DiskRequestDone (intptr_t arg)
 
 SynchDisk::SynchDisk(const char* name)
 {
-    semaphore = new Semaphore("synch disk", 0);
-    lock = new Lock("synch disk lock");
-    disk = new Disk(name, DiskRequestDone, (intptr_t) this);
+    semaphore = std::make_unique<Semaphore>("synch disk", 0);
+    lock = std::make_unique<Lock>("synch disk lock");
+    disk = std::make_unique<Disk>(name, DiskRequestDone, reinterpret_cast<intptr_t>(this));
 }
 
 //----------------------------------------------------------------------
@@ -53,12 +52,7 @@ SynchDisk::SynchDisk(const char* name)
 //	abstraction.
 //----------------------------------------------------------------------
 
-SynchDisk::~SynchDisk()
-{
-    delete disk;
-    delete lock;
-    delete semaphore;
-}
+SynchDisk::~SynchDisk() = default;
 
 //----------------------------------------------------------------------
 // SynchDisk::ReadSector
@@ -72,10 +66,9 @@ SynchDisk::~SynchDisk()
 void
 SynchDisk::ReadSector(int sectorNumber, char* data)
 {
-    lock->Acquire();			// only one disk I/O at a time
+    LockGuard guard(lock.get());		// only one disk I/O at a time
     disk->ReadRequest(sectorNumber, data);
-    semaphore->P();			// wait for interrupt
-    lock->Release();
+    semaphore->P();				// wait for interrupt
 }
 
 //----------------------------------------------------------------------
@@ -90,10 +83,9 @@ SynchDisk::ReadSector(int sectorNumber, char* data)
 void
 SynchDisk::WriteSector(int sectorNumber, char* data)
 {
-    lock->Acquire();			// only one disk I/O at a time
+    LockGuard guard(lock.get());		// only one disk I/O at a time
     disk->WriteRequest(sectorNumber, data);
-    semaphore->P();			// wait for interrupt
-    lock->Release();
+    semaphore->P();				// wait for interrupt
 }
 
 //----------------------------------------------------------------------

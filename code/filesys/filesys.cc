@@ -112,8 +112,8 @@ FileSystem::FileSystem(bool format)
     // The file system operations assume these two files are left open
     // while Nachos is running.
 
-        freeMapFile = new OpenFile(FreeMapSector);
-        directoryFile = new OpenFile(DirectorySector);
+        freeMapFile = std::make_unique<OpenFile>(FreeMapSector);
+        directoryFile = std::make_unique<OpenFile>(DirectorySector);
      
     // Once we have the files "open", we can write the initial version
     // of each file back to disk.  The directory at this point is completely
@@ -122,8 +122,8 @@ FileSystem::FileSystem(bool format)
     // to hold the file data for the directory and bitmap.
 
         DEBUG('f', "Writing bitmap and directory back to disk.\n");
-	freeMap.WriteBack(freeMapFile);	 // flush changes to disk
-	directory.WriteBack(directoryFile);
+	freeMap.WriteBack(freeMapFile.get());	 // flush changes to disk
+	directory.WriteBack(directoryFile.get());
 
 	if (DebugIsEnabled('f')) {
 	    freeMap.Print();
@@ -132,16 +132,12 @@ FileSystem::FileSystem(bool format)
     } else {
     // if we are not formatting the disk, just open the files representing
     // the bitmap and directory; these are left open while Nachos is running
-        freeMapFile = new OpenFile(FreeMapSector);
-        directoryFile = new OpenFile(DirectorySector);
+        freeMapFile = std::make_unique<OpenFile>(FreeMapSector);
+        directoryFile = std::make_unique<OpenFile>(DirectorySector);
     }
 }
 
-FileSystem::~FileSystem()
-{
-    delete freeMapFile;
-    delete directoryFile;
-}
+FileSystem::~FileSystem() = default;
 
 //----------------------------------------------------------------------
 // FileSystem::Create
@@ -178,13 +174,13 @@ FileSystem::Create(const char *name, int initialSize)
     DEBUG('f', "Creating file %s, size %d\n", name, initialSize);
 
     Directory directory(NumDirEntries);
-    directory.FetchFrom(directoryFile);
+    directory.FetchFrom(directoryFile.get());
 
     if (directory.Find(name) != -1)
       return false;			// file is already in directory
 
     BitMap freeMap(NumSectors);
-    freeMap.FetchFrom(freeMapFile);
+    freeMap.FetchFrom(freeMapFile.get());
     int sector = freeMap.Find();	// find a sector to hold the file header
     if (sector == -1) 		
         return false;		// no free block for file header 
@@ -197,8 +193,8 @@ FileSystem::Create(const char *name, int initialSize)
 
     // everything worked, flush all changes back to disk
     hdr.WriteBack(sector); 		
-    directory.WriteBack(directoryFile);
-    freeMap.WriteBack(freeMapFile);
+    directory.WriteBack(directoryFile.get());
+    freeMap.WriteBack(freeMapFile.get());
     return true;
 }
 
@@ -219,7 +215,7 @@ FileSystem::Open(const char *name)
     OpenFile *openFile = nullptr;
 
     DEBUG('f', "Opening file %s\n", name);
-    directory.FetchFrom(directoryFile);
+    directory.FetchFrom(directoryFile.get());
     int sector = directory.Find(name); 
     if (sector >= 0) 		
 	openFile = new OpenFile(sector);	// name was found in directory 
@@ -244,7 +240,7 @@ bool
 FileSystem::Remove(const char *name)
 { 
     Directory directory(NumDirEntries);
-    directory.FetchFrom(directoryFile);
+    directory.FetchFrom(directoryFile.get());
     int sector = directory.Find(name);
     if (sector == -1) {
        return false;			 // file not found 
@@ -253,14 +249,14 @@ FileSystem::Remove(const char *name)
     fileHdr.FetchFrom(sector);
 
     BitMap freeMap(NumSectors);
-    freeMap.FetchFrom(freeMapFile);
+    freeMap.FetchFrom(freeMapFile.get());
 
     fileHdr.Deallocate(&freeMap);  		// remove data blocks
     freeMap.Clear(sector);			// remove header block
     directory.Remove(name);
 
-    freeMap.WriteBack(freeMapFile);		// flush to disk
-    directory.WriteBack(directoryFile);        // flush to disk
+    freeMap.WriteBack(freeMapFile.get());		// flush to disk
+    directory.WriteBack(directoryFile.get());        // flush to disk
     return true;
 } 
 
@@ -274,7 +270,7 @@ FileSystem::List() const
 {
     Directory directory(NumDirEntries);
 
-    directory.FetchFrom(directoryFile);
+    directory.FetchFrom(directoryFile.get());
     directory.List();
 }
 
@@ -304,9 +300,9 @@ FileSystem::Print() const
     dirHdr.FetchFrom(DirectorySector);
     dirHdr.Print();
 
-    freeMap.FetchFrom(freeMapFile);
+    freeMap.FetchFrom(freeMapFile.get());
     freeMap.Print();
 
-    directory.FetchFrom(directoryFile);
+    directory.FetchFrom(directoryFile.get());
     directory.Print();
 } 

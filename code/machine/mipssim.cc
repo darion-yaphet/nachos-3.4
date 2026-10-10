@@ -30,14 +30,14 @@ static void Mult(int a, int b, bool signedArith, int* hiPtr, int* loPtr);
 void
 Machine::Run()
 {
-    Instruction *instr = new Instruction;  // storage for decoded instruction
+    Instruction instr;  // storage for decoded instruction on stack
 
     if(DebugIsEnabled('m'))
         printf("Starting thread \"%s\" at time %d\n",
 	       currentThread->getName(), stats->totalTicks);
     interrupt->setStatus(UserMode);
     for (;;) {
-        OneInstruction(instr);
+        OneInstruction(&instr);
 	interrupt->OneTick();
 	if (singleStep && (runUntilTime <= stats->totalTicks))
 	  Debugger();
@@ -218,12 +218,14 @@ Machine::OneInstruction(Instruction *instr)
 	
       case OP_JAL:
 	registers[R31] = registers[NextPCReg] + 4;
+	[[fallthrough]];
       case OP_J:
 	pcAfter = (pcAfter & 0xf0000000) | IndexToAddr(instr->extra);
 	break;
 	
       case OP_JALR:
 	registers[instr->rd] = registers[NextPCReg] + 4;
+	[[fallthrough]];
       case OP_JR:
 	pcAfter = registers[instr->rs];
 	break;
@@ -359,12 +361,12 @@ Machine::OneInstruction(Instruction *instr)
 	break;
 	
       case OP_MULT:
-	Mult(registers[instr->rs], registers[instr->rt], TRUE,
+	Mult(registers[instr->rs], registers[instr->rt], true,
 	     &registers[HiReg], &registers[LoReg]);
 	break;
 	
       case OP_MULTU:
-	Mult(registers[instr->rs], registers[instr->rt], FALSE,
+	Mult(registers[instr->rs], registers[instr->rt], false,
 	     &registers[HiReg], &registers[LoReg]);
 	break;
 	
@@ -373,7 +375,7 @@ Machine::OneInstruction(Instruction *instr)
 	break;
 	
       case OP_OR:
-	registers[instr->rd] = registers[instr->rs] | registers[instr->rs];
+	registers[instr->rd] = registers[instr->rs] | registers[instr->rt];
 	break;
 	
       case OP_ORI:
@@ -549,7 +551,7 @@ Machine::OneInstruction(Instruction *instr)
 	return;
 	
       default:
-	ASSERT(FALSE);
+	ASSERT(false);
     }
     
     // Now we have successfully executed the instruction.
@@ -642,7 +644,7 @@ Mult(int a, int b, bool signedArith, int* hiPtr, int* loPtr)
 
     // Compute the sign of the result, then make everything positive
     // so unsigned computation can be done in the main loop.
-    bool negative = FALSE;
+    bool negative = false;
     if (signedArith) {
 	if (a < 0) {
 	    negative = !negative;

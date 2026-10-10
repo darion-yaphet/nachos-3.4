@@ -28,8 +28,8 @@
 //----------------------------------------------------------------------
 
 Scheduler::Scheduler()
+    : readyList(std::make_unique<List>())
 { 
-    readyList = new List; 
 } 
 
 //----------------------------------------------------------------------
@@ -37,10 +37,7 @@ Scheduler::Scheduler()
 // 	De-allocate the list of ready threads.
 //----------------------------------------------------------------------
 
-Scheduler::~Scheduler()
-{ 
-    delete readyList; 
-} 
+Scheduler::~Scheduler() = default;
 
 //----------------------------------------------------------------------
 // Scheduler::ReadyToRun
@@ -56,7 +53,7 @@ Scheduler::ReadyToRun (Thread *thread)
     DEBUG('t', "Putting thread %s on ready list.\n", thread->getName());
 
     thread->setStatus(READY);
-    readyList->Append((void *)thread);
+    readyList->Append(thread);
 }
 
 //----------------------------------------------------------------------
@@ -70,7 +67,7 @@ Scheduler::ReadyToRun (Thread *thread)
 Thread *
 Scheduler::FindNextToRun ()
 {
-    return static_cast<Thread *>(readyList->Remove());
+    return readyList->RemoveAs<Thread>();
 }
 
 //----------------------------------------------------------------------

@@ -47,7 +47,7 @@ Mail::Mail(PacketHeader pktH, MailHeader mailH, const char *msgData)
 
 MailBox::MailBox()
 { 
-    messages = new SynchList(); 
+    messages = std::make_unique<SynchList>(); 
 }
 
 //----------------------------------------------------------------------
@@ -58,10 +58,7 @@ MailBox::MailBox()
 //	in the mailbox.
 //----------------------------------------------------------------------
 
-MailBox::~MailBox()
-{ 
-    delete messages; 
-}
+MailBox::~MailBox() = default;
 
 //----------------------------------------------------------------------
 // PrintHeader
@@ -173,15 +170,15 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
     : netAddr(addr), numBoxes(nBoxes)
 {
 // First, initialize the synchronization with the interrupt handlers
-    messageAvailable = new Semaphore("message available", 0);
-    messageSent = new Semaphore("message sent", 0);
-    sendLock = new Lock("message send lock");
+    messageAvailable = std::make_unique<Semaphore>("message available", 0);
+    messageSent = std::make_unique<Semaphore>("message sent", 0);
+    sendLock = std::make_unique<Lock>("message send lock");
 
 // Second, initialize the mailboxes
-    boxes = new MailBox[nBoxes];
+    boxes = std::make_unique<MailBox[]>(nBoxes);
 
 // Third, initialize the network; tell it which interrupt handlers to call
-    network = new Network(addr, reliability, ReadAvail, WriteDone, reinterpret_cast<intptr_t>(this));
+    network = std::make_unique<Network>(addr, reliability, ReadAvail, WriteDone, reinterpret_cast<intptr_t>(this));
 
 // Finally, create a thread whose sole job is to wait for incoming messages,
 //   and put them in the right mailbox. 
@@ -194,14 +191,7 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
 // 	De-allocate the post office data structures.
 //----------------------------------------------------------------------
 
-PostOffice::~PostOffice()
-{
-    delete network;
-    delete [] boxes;
-    delete messageAvailable;
-    delete messageSent;
-    delete sendLock;
-}
+PostOffice::~PostOffice() = default;
 
 //----------------------------------------------------------------------
 // PostOffice::PostalDelivery
@@ -273,7 +263,7 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, const char* data)
     memmove(buffer + sizeof(MailHeader), data, mailHdr.length);
 
     {
-        LockGuard guard(sendLock);   	// only one message can be sent
+        LockGuard guard(sendLock.get());   	// only one message can be sent
 					// to the network at any one time
         network->Send(pktHdr, buffer);
         messageSent->P();		// wait for interrupt to tell us

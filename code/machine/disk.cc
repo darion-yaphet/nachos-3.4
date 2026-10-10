@@ -20,13 +20,12 @@
 // We put this at the front of the UNIX file representing the
 // disk, to make it less likely we will accidentally treat a useful file 
 // as a disk (which would probably trash the file's contents).
-#define MagicNumber 	0x456789ab
-#define MagicSize 	sizeof(int)
-
-#define DiskSize 	(MagicSize + (NumSectors * SectorSize))
+constexpr int MagicNumber = 0x456789ab;
+constexpr int MagicSize = sizeof(int);
+constexpr int DiskSize = MagicSize + (NumSectors * SectorSize);
 
 // dummy procedure because we can't take a pointer of a member function
-static void DiskDone(intptr_t arg) { ((Disk *)arg)->HandleInterrupt(); }
+static void DiskDone(intptr_t arg) { reinterpret_cast<Disk *>(arg)->HandleInterrupt(); }
 
 //----------------------------------------------------------------------
 // Disk::Disk()
@@ -51,20 +50,20 @@ Disk::Disk(const char* name, VoidFunctionPtr callWhenDone, intptr_t callArg)
     lastSector = 0;
     bufferInit = 0;
     
-    fileno = OpenForReadWrite(name, FALSE);
+    fileno = OpenForReadWrite(name, false);
     if (fileno >= 0) {		 	// file exists, check magic number 
-	Read(fileno, (char *) &magicNum, MagicSize);
+	Read(fileno, reinterpret_cast<char *>(&magicNum), MagicSize);
 	ASSERT(magicNum == MagicNumber);
     } else {				// file doesn't exist, create it
         fileno = OpenForWrite(name);
 	magicNum = MagicNumber;  
-	WriteFile(fileno, (char *) &magicNum, MagicSize); // write magic number
+	WriteFile(fileno, reinterpret_cast<const char *>(&magicNum), MagicSize); // write magic number
 
 	// need to write at end of file, so that reads will not return EOF
         Lseek(fileno, DiskSize - sizeof(int), 0);	
-	WriteFile(fileno, (char *)&tmp, sizeof(int));  
+	WriteFile(fileno, reinterpret_cast<const char *>(&tmp), sizeof(int));  
     }
-    active = FALSE;
+    active = false;
 }
 
 //----------------------------------------------------------------------
@@ -115,7 +114,7 @@ PrintSector (bool writing, int sector, char *data)
 void
 Disk::ReadRequest(int sectorNumber, char* data)
 {
-    int ticks = ComputeLatency(sectorNumber, FALSE);
+    int ticks = ComputeLatency(sectorNumber, false);
 
     ASSERT(!active);				// only one request at a time
     ASSERT((sectorNumber >= 0) && (sectorNumber < NumSectors));
@@ -124,18 +123,18 @@ Disk::ReadRequest(int sectorNumber, char* data)
     Lseek(fileno, SectorSize * sectorNumber + MagicSize, 0);
     Read(fileno, data, SectorSize);
     if (DebugIsEnabled('d'))
-	PrintSector(FALSE, sectorNumber, data);
+	PrintSector(false, sectorNumber, data);
     
-    active = TRUE;
+    active = true;
     UpdateLast(sectorNumber);
     stats->numDiskReads++;
-    interrupt->Schedule(DiskDone, (intptr_t) this, ticks, DiskInt);
+    interrupt->Schedule(DiskDone, reinterpret_cast<intptr_t>(this), ticks, DiskInt);
 }
 
 void
 Disk::WriteRequest(int sectorNumber, char* data)
 {
-    int ticks = ComputeLatency(sectorNumber, TRUE);
+    int ticks = ComputeLatency(sectorNumber, true);
 
     ASSERT(!active);
     ASSERT((sectorNumber >= 0) && (sectorNumber < NumSectors));
@@ -144,12 +143,12 @@ Disk::WriteRequest(int sectorNumber, char* data)
     Lseek(fileno, SectorSize * sectorNumber + MagicSize, 0);
     WriteFile(fileno, data, SectorSize);
     if (DebugIsEnabled('d'))
-	PrintSector(TRUE, sectorNumber, data);
+	PrintSector(true, sectorNumber, data);
     
-    active = TRUE;
+    active = true;
     UpdateLast(sectorNumber);
     stats->numDiskWrites++;
-    interrupt->Schedule(DiskDone, (intptr_t) this, ticks, DiskInt);
+    interrupt->Schedule(DiskDone, reinterpret_cast<intptr_t>(this), ticks, DiskInt);
 }
 
 //----------------------------------------------------------------------
@@ -161,7 +160,7 @@ Disk::WriteRequest(int sectorNumber, char* data)
 void
 Disk::HandleInterrupt ()
 { 
-    active = FALSE;
+    active = false;
     (*handler)(handlerArg);
 }
 
@@ -238,7 +237,7 @@ Disk::ComputeLatency(int newSector, bool writing)
 
 #ifndef NOTRACKBUF	// turn this on if you don't want the track buffer stuff
     // check if track buffer applies
-    if ((writing == FALSE) && (seek == 0) 
+    if (!writing && (seek == 0) 
 		&& (((timeAfter - bufferInit) / RotationTime) 
 	     		> ModuloDiff(newSector, bufferInit / RotationTime))) {
         DEBUG('d', "Request latency = %d\n", RotationTime);

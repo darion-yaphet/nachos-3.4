@@ -84,7 +84,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
 					numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
+    pageTable = std::make_unique<TranslationEntry[]>(numPages);
     for (i = 0; i < numPages; i++) {
 	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
 	pageTable[i].physicalPage = i;
@@ -121,10 +121,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 // 	Deallocate an address space.
 //----------------------------------------------------------------------
 
-AddrSpace::~AddrSpace()
-{
-   delete [] pageTable;
-}
+AddrSpace::~AddrSpace() = default;
 
 //----------------------------------------------------------------------
 // AddrSpace::InitRegisters
@@ -179,6 +176,6 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable;
+    machine->pageTable = pageTable.get();
     machine->pageTableSize = numPages;
 }

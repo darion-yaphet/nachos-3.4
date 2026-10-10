@@ -46,10 +46,10 @@
 //
 // The track buffer simulation can be disabled by compiling with -DNOTRACKBUF
 
-#define SectorSize 		128	// number of bytes per disk sector
-#define SectorsPerTrack 	32	// number of sectors per disk track 
-#define NumTracks 		32	// number of tracks per disk
-#define NumSectors 		(SectorsPerTrack * NumTracks)
+constexpr int SectorSize = 128;		// number of bytes per disk sector
+constexpr int SectorsPerTrack = 32;	// number of sectors per disk track 
+constexpr int NumTracks = 32;		// number of tracks per disk
+constexpr int NumSectors = (SectorsPerTrack * NumTracks);
 					// total # of sectors per disk
 
 class Disk {
@@ -59,6 +59,9 @@ class Disk {
 					// Invoke (*callWhenDone)(callArg) 
 					// every time a request completes.
     ~Disk();				// Deallocate the disk.
+
+    Disk(const Disk &) = delete;
+    Disk &operator=(const Disk &) = delete;
     
     void ReadRequest(int sectorNumber, char* data);
     					// Read/write an single disk sector.
@@ -70,19 +73,19 @@ class Disk {
     void HandleInterrupt();		// Interrupt handler, invoked when
 					// disk request finishes.
 
-    int ComputeLatency(int newSector, bool writing);	
+    [[nodiscard]] int ComputeLatency(int newSector, bool writing);	
     					// Return how long a request to 
 					// newSector will take: 
 					// (seek + rotational delay + transfer)
 
   private:
-    int fileno;				// UNIX file number for simulated disk 
-    VoidFunctionPtr handler;		// Interrupt handler, to be invoked 
+    int fileno{-1};			// UNIX file number for simulated disk 
+    VoidFunctionPtr handler{nullptr};	// Interrupt handler, to be invoked 
 					// when any disk request finishes
-    intptr_t handlerArg;		// Argument to interrupt handler 
-    bool active;     			// Is a disk operation in progress?
-    int lastSector;			// The previous disk request 
-    int bufferInit;			// When the track buffer started 
+    intptr_t handlerArg{0};		// Argument to interrupt handler 
+    bool active{false};     		// Is a disk operation in progress?
+    int lastSector{0};			// The previous disk request 
+    int bufferInit{0};			// When the track buffer started 
 					// being loaded
 
     int TimeToSeek(int newSector, int *rotate); // time to get to the new track

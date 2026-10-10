@@ -17,6 +17,8 @@
 // the data structures and operations needed to keep track of which 
 // thread is running, and which threads are ready but not running.
 
+#include <memory>
+
 class Scheduler {
   public:
     Scheduler();			// Initialize list of ready threads 
@@ -33,7 +35,7 @@ class Scheduler {
     void Print() const;			// Print contents of ready list
     
   private:
-    List *readyList = nullptr;  	// queue of threads that are ready to run,
+    std::unique_ptr<List> readyList;  	// queue of threads that are ready to run,
 					// but not running
 };
 

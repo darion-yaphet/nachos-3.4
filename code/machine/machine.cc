@@ -122,14 +122,15 @@ Machine::RaiseException(ExceptionType which, int badVAddr)
 
 void Machine::Debugger()
 {
-    char *buf = new char[80];
+    char buf[80] = {0};
     int num;
 
     interrupt->DumpState();
     DumpState();
     printf("%d> ", stats->totalTicks);
     fflush(stdout);
-    fgets(buf, 80, stdin);
+    if (fgets(buf, sizeof(buf), stdin) == nullptr)
+        return;
     if (sscanf(buf, "%d", &num) == 1)
 	runUntilTime = num;
     else {
@@ -139,7 +140,7 @@ void Machine::Debugger()
 	    break;
 	    
 	  case 'c':
-	    singleStep = FALSE;
+	    singleStep = false;
 	    break;
 	    
 	  case '?':
@@ -151,7 +152,6 @@ void Machine::Debugger()
 	    break;
 	}
     }
-    delete [] buf;
 }
  
 //----------------------------------------------------------------------

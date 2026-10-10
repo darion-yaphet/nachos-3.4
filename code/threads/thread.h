@@ -52,12 +52,12 @@
 // CPU register state to be saved on context switch.  
 // The SPARC and MIPS only need 10 registers, but the Snake needs 18.
 // For simplicity, this is just the max over all architectures.
-#define MachineStateSize 18 
+constexpr int MachineStateSize = 18;
 
 
 // Size of the thread's private execution stack.
 // WATCH OUT IF THIS ISN'T BIG ENOUGH!!!!!
-#define StackSize	(4 * 1024)	// in words
+constexpr int StackSize = (4 * 1024);	// in words
 
 
 // Thread state

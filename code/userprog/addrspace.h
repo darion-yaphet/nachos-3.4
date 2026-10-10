@@ -18,6 +18,8 @@
 
 constexpr int UserStackSize = 1024; 	// increase this as necessary!
 
+#include <memory>
+
 class AddrSpace {
   public:
     explicit AddrSpace(OpenFile *executable);	// Create an address space,
@@ -35,7 +37,7 @@ class AddrSpace {
     void RestoreState();		// info on a context switch 
 
   private:
-    TranslationEntry *pageTable{nullptr};	// Assume linear page table translation
+    std::unique_ptr<TranslationEntry[]> pageTable; // Assume linear page table translation
 					// for now!
     unsigned int numPages{0};		// Number of pages in the virtual 
 					// address space

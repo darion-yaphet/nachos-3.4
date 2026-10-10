@@ -48,6 +48,8 @@ class DirectoryEntry {
 // FetchFrom/WriteBack operations shuffle the directory information
 // from/to disk. 
 
+#include <memory>
+
 class Directory {
   public:
     explicit Directory(int size); 		// Initialize an empty directory
@@ -56,6 +58,8 @@ class Directory {
 
     Directory(const Directory&) = delete;
     Directory& operator=(const Directory&) = delete;
+    Directory(Directory&&) noexcept = default;
+    Directory& operator=(Directory&&) noexcept = default;
 
     void FetchFrom(OpenFile *file);  	// Init directory contents from disk
     void WriteBack(OpenFile *file);	// Write modifications to 
@@ -76,7 +80,7 @@ class Directory {
 
   private:
     int tableSize{0};			// Number of directory entries
-    DirectoryEntry *table{nullptr};	// Table of pairs: 
+    std::unique_ptr<DirectoryEntry[]> table;	// Table of pairs: 
 					// <file name, file header location> 
 
     [[nodiscard]] int FindIndex(const char *name) const;		// Find the index into the directory 

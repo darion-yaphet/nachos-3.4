@@ -42,7 +42,7 @@ static const char *intTypeNames[] = { "timer", "disk", "console write",
 //----------------------------------------------------------------------
 
 Interrupt::Interrupt()
-    : level(IntOff), pending(new List()), inHandler(false), yieldOnReturn(false), status(SystemMode)
+    : level(IntOff), pending(std::make_unique<List>()), inHandler(false), yieldOnReturn(false), status(SystemMode)
 {
 }
 
@@ -54,8 +54,7 @@ Interrupt::Interrupt()
 Interrupt::~Interrupt()
 {
     while (!pending->IsEmpty())
-	delete static_cast<PendingInterrupt *>(pending->Remove());
-    delete pending;
+	delete pending->RemoveAs<PendingInterrupt>();
 }
 
 //----------------------------------------------------------------------
@@ -277,42 +276,41 @@ Interrupt::CheckIfDue(bool advanceClock)
 					// to invoke an interrupt handler
     if (DebugIsEnabled('i'))
 	DumpState();
-    PendingInterrupt *toOccur = 
-		(PendingInterrupt *)pending->SortedRemove(&when);
+    auto *toOccur = static_cast<PendingInterrupt *>(pending->SortedRemove(&when));
 
-    if (toOccur == NULL)		// no pending interrupts
-	return FALSE;			
+    if (toOccur == nullptr)		// no pending interrupts
+	return false;			
 
     if (advanceClock && when > stats->totalTicks) {	// advance the clock
 	stats->idleTicks += (when - stats->totalTicks);
 	stats->totalTicks = when;
     } else if (when > stats->totalTicks) {	// not time yet, put it back
 	pending->SortedInsert(toOccur, when);
-	return FALSE;
+	return false;
     }
 
 // Check if there is nothing more to do, and if so, quit
     if ((status == IdleMode) && (toOccur->type == TimerInt) 
 				&& pending->IsEmpty()) {
 	 pending->SortedInsert(toOccur, when);
-	 return FALSE;
+	 return false;
     }
 
     DEBUG('i', "Invoking interrupt handler for the %s at time %d\n", 
 			intTypeNames[toOccur->type], toOccur->when);
 #ifdef USER_PROGRAM
-    if (machine != NULL)
+    if (machine != nullptr)
     	machine->DelayedLoad(0, 0);
 #endif
-    inHandler = TRUE;
+    inHandler = true;
     status = SystemMode;			// whatever we were doing,
 						// we are now going to be
 						// running in the kernel
     (*(toOccur->handler))(toOccur->arg);	// call the interrupt handler
     status = old;				// restore the machine status
-    inHandler = FALSE;
+    inHandler = false;
     delete toOccur;
-    return TRUE;
+    return true;
 }
 
 //----------------------------------------------------------------------

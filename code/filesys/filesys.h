@@ -37,6 +37,7 @@
 
 #include "copyright.h"
 #include "openfile.h"
+#include <memory>
 
 #ifdef FILESYS_STUB 		// Temporarily implement file system calls as 
 				// calls to UNIX, until the real file system
@@ -90,9 +91,9 @@ class FileSystem {
     void Print() const;			// List all the files and their contents
 
   private:
-   OpenFile* freeMapFile{nullptr};		// Bit map of free disk blocks,
+   std::unique_ptr<OpenFile> freeMapFile;	// Bit map of free disk blocks,
 					// represented as a file
-   OpenFile* directoryFile{nullptr};		// "Root" directory -- list of 
+   std::unique_ptr<OpenFile> directoryFile;	// "Root" directory -- list of 
 					// file names, represented as a file
 };
 

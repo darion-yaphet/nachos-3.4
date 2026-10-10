@@ -37,6 +37,7 @@
 
 #include "copyright.h"
 #include "list.h"
+#include <memory>
 
 // Interrupts can be disabled (IntOff) or enabled (IntOn)
 enum IntStatus { IntOff, IntOn };
@@ -117,7 +118,7 @@ class Interrupt {
 
   private:
     IntStatus level{IntOff};		// are interrupts enabled or disabled?
-    List *pending{nullptr};		// the list of interrupts scheduled
+    std::unique_ptr<List> pending;	// the list of interrupts scheduled
 				// to occur in the future
     bool inHandler{false};		// TRUE if we are running an interrupt handler
     bool yieldOnReturn{false}; 	// TRUE if we are to context switch

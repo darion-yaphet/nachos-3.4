@@ -25,7 +25,7 @@
 //----------------------------------------------------------------------
 
 OpenFile::OpenFile(int sector)
-    : hdr(new FileHeader()), seekPosition(0)
+    : hdr(std::make_unique<FileHeader>()), seekPosition(0)
 { 
     hdr->FetchFrom(sector);
 }
@@ -35,10 +35,7 @@ OpenFile::OpenFile(int sector)
 // 	Close a Nachos file, de-allocating any in-memory data structures.
 //----------------------------------------------------------------------
 
-OpenFile::~OpenFile()
-{
-    delete hdr;
-}
+OpenFile::~OpenFile() = default;
 
 //----------------------------------------------------------------------
 // OpenFile::Seek

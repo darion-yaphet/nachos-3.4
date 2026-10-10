@@ -62,6 +62,9 @@ class OpenFile {
 };
 
 #else // FILESYS
+
+#include <memory>
+
 class FileHeader;
 
 class OpenFile {
@@ -93,7 +96,7 @@ class OpenFile {
 					// end of file, tell, lseek back 
     
   private:
-    FileHeader *hdr{nullptr};			// Header for this file 
+    std::unique_ptr<FileHeader> hdr;		// Header for this file 
     int seekPosition{0};			// Current position within the file
 };
 

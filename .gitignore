@@ -14,3 +14,9 @@ DISK
 # MIPS test binaries and cores
 *.coff
 core
+
+# Temporary and socket files
+*.tmp
+SOCKET_*
+swtch.s
+

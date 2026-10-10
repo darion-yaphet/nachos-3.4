@@ -34,10 +34,8 @@
 //----------------------------------------------------------------------
 
 Semaphore::Semaphore(const char* debugName, int initialValue)
+    : name(debugName), value(initialValue), queue(std::make_unique<List>())
 {
-    name = debugName;
-    value = initialValue;
-    queue = new List;
 }
 
 //----------------------------------------------------------------------
@@ -46,10 +44,7 @@ Semaphore::Semaphore(const char* debugName, int initialValue)
 //	is still waiting on the semaphore!
 //----------------------------------------------------------------------
 
-Semaphore::~Semaphore()
-{
-    delete queue;
-}
+Semaphore::~Semaphore() = default;
 
 //----------------------------------------------------------------------
 // Semaphore::P
