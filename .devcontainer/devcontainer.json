@@ -1,0 +1,27 @@
+{
+  "name": "Nachos 3.4 (Modern C++17 Environment)",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "C_Cpp.default.cppStandard": "c++17",
+        "C_Cpp.default.cStandard": "c11",
+        "C_Cpp.default.intelliSenseMode": "linux-gcc-x64",
+        "files.associations": {
+          "*.h": "cpp",
+          "*.cc": "cpp"
+        }
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-python.python",
+        "vadimcn.vscode-lldb"
+      ]
+    }
+  },
+  "postCreateCommand": "make -C code clean && make -C code && python3 code/test_runner.py",
+  "remoteUser": "root"
+}

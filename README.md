@@ -1,5 +1,10 @@
 # Nachos 3.4 (Modern C++17 Edition)
 
+![CI](https://img.shields.io/badge/CI-GitHub%20Actions-brightgreen.svg)
+![C++17](https://img.shields.io/badge/language-C%2B%2B17-blue.svg)
+![Platform](https://img.shields.io/badge/platform-macOS%20ARM64%20%7C%20Linux%20x86__64-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-100%25%20passing-success.svg)
+
 > 🎓 **Nachos（Not Another Completely Heuristic Operating System）** 是由加州大学伯克利分校（UC Berkeley）开发的经典操作系统教学软件。本项目经过全方位的**现代 C++17 工业级重构与教学基础设施升级**，为现代操作系统课程提供安全、健壮、易调试的高质量教学与实验基座。
 
 ---
@@ -71,6 +76,16 @@ Summary: 5/5 passed (100.0%) - Total time: 1.07s
 # 格式化虚拟磁盘并列出文件系统元数据
 ./code/filesys/nachos -f -D
 ```
+
+### 4. 🐳 容器化一键开发（VS Code DevContainer / Docker）
+免去手动配置本地编译器的麻烦，开箱即用：
+- **VS Code DevContainer**：
+  在 VS Code 中安装 `Remote - Containers` 插件后，在项目窗口选择 **"Reopen in Container"**，自动加载已预装 GCC、Clang、GDB 与 MIPS 交叉编译工具链的 Ubuntu 22.04 容器。
+- **原生 Docker 运行**：
+  ```bash
+  docker build -t nachos .
+  docker run --rm -it nachos
+  ```
 
 ---
 
