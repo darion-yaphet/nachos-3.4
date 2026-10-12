@@ -10,8 +10,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     make \
     python3 \
     ed \
-    csh \
-    tcsh \
     git \
     gcc-mips-linux-gnu \
     binutils-mips-linux-gnu \

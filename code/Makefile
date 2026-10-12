@@ -2,31 +2,32 @@
 # All rights reserved.  See copyright.h for copyright notice and limitation 
 # of liability and disclaimer of warranty provisions.
 
-MAKE = gmake
+MAKE ?= make
 LPR = lpr
 
 all: 
-	cd threads; $(MAKE) depend
-	cd threads; $(MAKE) nachos
-	cd userprog; $(MAKE) depend 
-	cd userprog; $(MAKE) nachos 
-	cd vm; $(MAKE) depend
-	cd vm; $(MAKE) nachos 
-	cd filesys; $(MAKE) depend
-	cd filesys; $(MAKE) nachos 
-	cd network; $(MAKE) depend
-	cd network; $(MAKE) nachos 
-	cd bin; make all
+	$(MAKE) -C threads depend
+	$(MAKE) -C threads nachos
+	$(MAKE) -C userprog depend 
+	$(MAKE) -C userprog nachos 
+	$(MAKE) -C vm depend
+	$(MAKE) -C vm nachos 
+	$(MAKE) -C filesys depend
+	$(MAKE) -C filesys nachos 
+	$(MAKE) -C network depend
+	$(MAKE) -C network nachos 
+	$(MAKE) -C bin all
 
-ifeq ($(shell uname -s)-$(shell uname -m),Darwin-arm64)
-	@echo "Skipping MIPS user-program build: no MIPS cross-compiler is configured."
-else
-	cd test; make all
-endif
+userprog-test:
+	@if [ -n "$$(which mips-linux-gnu-gcc 2>/dev/null)" ]; then \
+		$(MAKE) -C test all; \
+	else \
+		echo "Skipping MIPS user-program build: no MIPS cross-compiler is configured."; \
+	fi
 
-# don't delete executables in "test" in case there is no cross-compiler
 clean:
-	/bin/csh -c "rm -f */{core,nachos,DISK,*.o,swtch.s} test/{*.coff} bin/{coff2flat,coff2noff,disassemble,out}"
+	rm -f */core */nachos */DISK */*.o */swtch.s */makedep */eddep
+	rm -f test/*.coff bin/coff2flat bin/coff2noff bin/disassemble bin/out
 
 print:
 	/bin/csh -c "$(LPR) Makefile* */Makefile"
