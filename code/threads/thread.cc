@@ -122,9 +122,9 @@ Thread::CheckOverflow() const
 {
     if (stack != nullptr)
 #ifdef HOST_SNAKE			// Stacks grow upward on the Snakes
-	ASSERT(stack[StackSize - 1] == STACK_FENCEPOST);
+	ASSERT(static_cast<unsigned int>(stack[StackSize - 1]) == STACK_FENCEPOST);
 #else
-	ASSERT(*stack == STACK_FENCEPOST);
+	ASSERT(static_cast<unsigned int>(*stack) == STACK_FENCEPOST);
 #endif
 }
 

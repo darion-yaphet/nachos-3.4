@@ -30,6 +30,7 @@ extern "C" {
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <errno.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/socket.h>
@@ -362,7 +363,6 @@ void
 ReadFromSocket(int sockID, char *buffer, int packetSize)
 {
     int retVal;
-    extern int errno;
     struct sockaddr_un uName;
     socklen_t size = sizeof(uName);
    

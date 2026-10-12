@@ -83,12 +83,8 @@ class Semaphore;
 class Thread {
   private:
     // NOTE: DO NOT CHANGE the order of these first two members.
-    // THEY MUST be in this position for SWITCH to work.
     int* stackTop = nullptr;			 // the current stack pointer
-#ifdef HOST_DARWIN_ARM64
-    [[maybe_unused]]
-#endif
-    int machineState[MachineStateSize] = {};  // all registers except for stackTop
+    __attribute__((unused)) int machineState[MachineStateSize] = {};  // all registers except for stackTop
 
 #ifdef HOST_DARWIN_ARM64
     ucontext_t context = {};
