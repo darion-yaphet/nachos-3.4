@@ -39,6 +39,7 @@
 
 #include "copyright.h"
 #include "utility.h"
+#include <memory>
 
 #ifdef HOST_DARWIN_ARM64
 #include <ucontext.h>
@@ -77,6 +78,8 @@ extern void ThreadPrint(intptr_t arg);
 //  Some threads also belong to a user address space; threads
 //  that only run in the kernel have a NULL address space.
 
+class Semaphore;
+
 class Thread {
   private:
     // NOTE: DO NOT CHANGE the order of these first two members.
@@ -94,7 +97,7 @@ class Thread {
 #endif
 
   public:
-    explicit Thread(const char* debugName);	// initialize a Thread 
+    explicit Thread(const char* debugName, bool joinable = false); // initialize a Thread 
     ~Thread(); 					// deallocate a Thread
 						// NOTE -- thread being deleted
 						// must not be running when delete 
@@ -113,6 +116,12 @@ class Thread {
 						// relinquish the processor
     void Finish();  				// The thread is done executing
     
+    // Thread synchronization & joining
+    int Join();                                 // Wait for thread to finish and retrieve status
+    void SetExitStatus(int st) noexcept { exitStatus = st; }
+    [[nodiscard]] int GetExitStatus() const noexcept { return exitStatus; }
+    [[nodiscard]] bool IsJoinable() const noexcept { return isJoinable; }
+
     void CheckOverflow() const;   		// Check if thread has 
 						// overflowed its stack
     void setStatus(ThreadStatus st) noexcept { status = st; }
@@ -133,6 +142,11 @@ class Thread {
 						// (If nullptr, don't deallocate stack)
     ThreadStatus status = JUST_CREATED;		// ready, running or blocked
     const char* name = nullptr;
+
+    bool isJoinable{false};
+    bool hasExited{false};
+    int exitStatus{0};
+    std::unique_ptr<Semaphore> joinSem;
 
     void StackAllocate(VoidFunctionPtr func, intptr_t arg);
     						// Allocate a stack for thread.

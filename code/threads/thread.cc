@@ -32,12 +32,16 @@ constexpr unsigned int STACK_FENCEPOST = 0xdeadbeef;	// this is put at the top o
 //	"threadName" is an arbitrary string, useful for debugging.
 //----------------------------------------------------------------------
 
-Thread::Thread(const char* threadName)
+Thread::Thread(const char* threadName, bool joinable)
+    : isJoinable(joinable)
 {
     name = threadName;
     stackTop = nullptr;
     stack = nullptr;
     status = JUST_CREATED;
+    if (isJoinable) {
+        joinSem = std::make_unique<Semaphore>("joinSem", 0);
+    }
 #ifdef USER_PROGRAM
     space = nullptr;
 #endif
@@ -148,9 +152,36 @@ Thread::Finish ()
     
     DEBUG('t', "Finishing thread \"%s\"\n", getName());
     
-    threadToBeDestroyed = currentThread;
+    hasExited = true;
+    if (isJoinable && joinSem != nullptr) {
+        joinSem->V();
+        // Do not set threadToBeDestroyed; joining thread will delete this
+    } else {
+        threadToBeDestroyed = currentThread;
+    }
+
     Sleep();					// invokes SWITCH
     // not reached
+}
+
+//----------------------------------------------------------------------
+// Thread::Join
+// 	Wait until the thread finishes execution and return its exit status.
+// 	Reclaims the thread object.
+//----------------------------------------------------------------------
+
+int
+Thread::Join()
+{
+    ASSERT(isJoinable);
+    ASSERT(this != currentThread);
+
+    if (!hasExited && joinSem != nullptr) {
+        joinSem->P();
+    }
+    int exitCode = exitStatus;
+    delete this;
+    return exitCode;
 }
 
 //----------------------------------------------------------------------

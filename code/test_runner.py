@@ -47,10 +47,11 @@ def get_test_suite(code_dir):
                 "thread 1 looped 4 times",
                 "Mutex & LockGuard test PASSED (counter = 20)",
                 "Condition Variable (Mesa) test PASSED",
+                "Thread::Join test PASSED (status = 70)",
                 "Machine halting!"
             ],
             forbidden_substrings=["Assertion failed", "FATAL", "Self-deadlock", "Lock misuse"],
-            description="Thread concurrency, Lock/LockGuard mutual exclusion, and Mesa Condition Variable"
+            description="Thread concurrency, Lock/LockGuard mutual exclusion, Mesa Condition Variable, and Thread::Join"
         ),
         TestCase(
             name="threads_structured_logging",

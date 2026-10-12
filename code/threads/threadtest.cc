@@ -128,5 +128,20 @@ ThreadTest()
     ASSERT(bufferCount == 0);
     printf("--> Condition Variable (Mesa) test PASSED\n");
 
+    // Test 4: Thread::Join and Exit status test
+    Thread *joinChild = new Thread("joinable worker", true);
+    joinChild->Fork([](intptr_t arg) {
+        LOG_INFO('t', "JoinWorker %ld running and yielding\n", static_cast<long>(arg));
+        for (int i = 0; i < 3; i++) {
+            currentThread->Yield();
+        }
+        currentThread->SetExitStatus(static_cast<int>(arg * 10));
+        LOG_INFO('t', "JoinWorker %ld finishing with status %d\n",
+                 static_cast<long>(arg), currentThread->GetExitStatus());
+    }, 7);
+    int status = joinChild->Join();
+    ASSERT(status == 70);
+    printf("--> Thread::Join test PASSED (status = %d)\n", status);
+
     LOG_INFO('t', "=== All Nachos Concurrency Tests PASSED ===\n");
 }
