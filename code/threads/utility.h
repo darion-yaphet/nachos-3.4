@@ -72,6 +72,21 @@ extern void DebugInit(const char* flags);	// enable printing debug messages
 extern bool DebugIsEnabled(char flag); 	// Is this debug flag enabled?
 extern void DEBUG(char flag, const char* format, ...) __attribute__((__format__(__printf__, 2, 3)));  	// Print debug message 
 
+// Modern pedagogical structured logging
+enum class LogLevel {
+    DEBUG_LEVEL,
+    INFO_LEVEL,
+    WARN_LEVEL,
+    ERROR_LEVEL
+};
+
+extern void LogMessage(LogLevel level, char flag, const char* format, ...) __attribute__((__format__(__printf__, 3, 4)));
+
+#define LOG_DEBUG(flag, format, ...) LogMessage(LogLevel::DEBUG_LEVEL, flag, format, ##__VA_ARGS__)
+#define LOG_INFO(flag, format, ...)  LogMessage(LogLevel::INFO_LEVEL, flag, format, ##__VA_ARGS__)
+#define LOG_WARN(flag, format, ...)  LogMessage(LogLevel::WARN_LEVEL, flag, format, ##__VA_ARGS__)
+#define LOG_ERROR(flag, format, ...) LogMessage(LogLevel::ERROR_LEVEL, flag, format, ##__VA_ARGS__)
+
 //----------------------------------------------------------------------
 // ASSERT
 //      If condition is false, print a message and dump core.

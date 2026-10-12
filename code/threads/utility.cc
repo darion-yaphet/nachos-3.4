@@ -8,18 +8,15 @@
 
 #include "copyright.h"
 #include "utility.h"
+#include "thread.h"
+#include "stats.h"
+#include <unistd.h>
+#include <cstdarg>
+#include <cstring>
+#include <cstdio>
 
-// this seems to be dependent on how the compiler is configured.
-// if you have problems with va_start, try both of these alternatives
-#ifdef HOST_SNAKE
-#include <stdarg.h>
-#else
-#ifdef HOST_SPARC
-#include <stdarg.h>
-#else
-#include <stdarg.h>
-#endif
-#endif
+extern Thread *currentThread;
+extern Statistics *stats;
 
 static const char *enableFlags = nullptr; // controls which DEBUG messages are printed 
 
@@ -42,7 +39,7 @@ DebugInit(const char *flagList)
 
 //----------------------------------------------------------------------
 // DebugIsEnabled
-//      Return TRUE if DEBUG messages with "flag" are to be printed.
+//      Return true if DEBUG messages with "flag" are to be printed.
 //----------------------------------------------------------------------
 
 bool
@@ -72,3 +69,64 @@ DEBUG(char flag, const char *format, ...)
 	fflush(stdout);
     }
 }
+
+//----------------------------------------------------------------------
+// LogMessage
+//      Print modern structured pedagogical log with tick, thread context,
+//      ANSI terminal color coding, and log levels.
+//----------------------------------------------------------------------
+
+void
+LogMessage(LogLevel level, char flag, const char* format, ...)
+{
+    if (!DebugIsEnabled(flag)) {
+        return;
+    }
+
+    const char* colorCode = "";
+    const char* levelStr = "INFO";
+    bool useColor = (isatty(fileno(stdout)) != 0);
+
+    switch (level) {
+        case LogLevel::DEBUG_LEVEL:
+            levelStr = "DEBUG";
+            colorCode = useColor ? "\033[36m" : ""; // Cyan
+            break;
+        case LogLevel::INFO_LEVEL:
+            levelStr = "INFO";
+            colorCode = useColor ? "\033[32m" : ""; // Green
+            break;
+        case LogLevel::WARN_LEVEL:
+            levelStr = "WARN";
+            colorCode = useColor ? "\033[33m" : ""; // Yellow
+            break;
+        case LogLevel::ERROR_LEVEL:
+            levelStr = "ERROR";
+            colorCode = useColor ? "\033[31m" : ""; // Red
+            break;
+    }
+
+    const char* resetCode = useColor ? "\033[0m" : "";
+
+    int currentTick = -1;
+    const char* threadName = "kernel";
+    if (stats != nullptr) {
+        currentTick = stats->totalTicks;
+    }
+    if (currentThread != nullptr && currentThread->getName() != nullptr) {
+        threadName = currentThread->getName();
+    }
+
+    if (currentTick >= 0) {
+        printf("%s[%5d][%-10s][%s][%c]%s ", colorCode, currentTick, threadName, levelStr, flag, resetCode);
+    } else {
+        printf("%s[init ][%-10s][%s][%c]%s ", colorCode, threadName, levelStr, flag, resetCode);
+    }
+
+    va_list ap;
+    va_start(ap, format);
+    vfprintf(stdout, format, ap);
+    va_end(ap);
+    fflush(stdout);
+}
+

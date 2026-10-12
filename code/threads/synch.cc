@@ -92,17 +92,191 @@ Semaphore::V()
     (void) interrupt->SetLevel(oldLevel);
 }
 
-// Dummy functions -- so we can compile our later assignments 
-// Note -- without a correct implementation of Condition::Wait(), 
-// the test case in the network assignment won't work!
-Lock::Lock(const char* debugName) : name(debugName) {}
-Lock::~Lock() {}
-void Lock::Acquire() {}
-void Lock::Release() {}
-bool Lock::isHeldByCurrentThread() const { return true; }
+//----------------------------------------------------------------------
+// Lock::Lock
+// 	Initialize a lock to be FREE.
+//----------------------------------------------------------------------
 
-Condition::Condition(const char* debugName) : name(debugName) {}
-Condition::~Condition() {}
-void Condition::Wait(Lock* conditionLock) { (void)conditionLock; ASSERT(FALSE); }
-void Condition::Signal(Lock* conditionLock) { (void)conditionLock; }
-void Condition::Broadcast(Lock* conditionLock) { (void)conditionLock; }
+Lock::Lock(const char* debugName) 
+    : name(debugName), holder(nullptr), waitQueue(std::make_unique<List>()) 
+{
+}
+
+//----------------------------------------------------------------------
+// Lock::~Lock
+// 	Deallocate a lock. Assert that no thread is holding it.
+//----------------------------------------------------------------------
+
+Lock::~Lock()
+{
+    if (holder != nullptr) {
+        LOG_ERROR('s', "Lock destruction error: Lock \"%s\" destroyed while held by thread \"%s\"!\n",
+                  name ? name : "unnamed", holder->getName() ? holder->getName() : "unnamed");
+        ASSERT(false);
+    }
+}
+
+//----------------------------------------------------------------------
+// Lock::Acquire
+// 	Wait until the lock is FREE, then set it to BUSY and set holder.
+// 	Detects self-deadlock immediately.
+//----------------------------------------------------------------------
+
+void Lock::Acquire()
+{
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+
+    // Self-deadlock detection
+    if (isHeldByCurrentThread()) {
+        LOG_ERROR('s', "Self-deadlock detected! Thread \"%s\" is re-acquiring lock \"%s\"!\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  name ? name : "unnamed");
+        ASSERT(false);
+    }
+
+    while (holder != nullptr) {
+        LOG_DEBUG('s', "Thread \"%s\" waiting on busy lock \"%s\"\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  name ? name : "unnamed");
+        waitQueue->Append(currentThread);
+        currentThread->Sleep();
+    }
+
+    holder = currentThread;
+    LOG_DEBUG('s', "Thread \"%s\" acquired lock \"%s\"\n",
+              currentThread->getName() ? currentThread->getName() : "unnamed",
+              name ? name : "unnamed");
+
+    (void) interrupt->SetLevel(oldLevel);		// re-enable interrupts
+}
+
+//----------------------------------------------------------------------
+// Lock::Release
+// 	Release lock, waking up a waiting thread if any.
+// 	Enforces that only the lock holder can release the lock.
+//----------------------------------------------------------------------
+
+void Lock::Release()
+{
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);	// disable interrupts
+
+    // Lock misuse detection
+    if (!isHeldByCurrentThread()) {
+        LOG_ERROR('s', "Lock misuse detected! Thread \"%s\" tried to release lock \"%s\" held by \"%s\"!\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  name ? name : "unnamed",
+                  holder && holder->getName() ? holder->getName() : "<none>");
+        ASSERT(false);
+    }
+
+    LOG_DEBUG('s', "Thread \"%s\" released lock \"%s\"\n",
+              currentThread->getName() ? currentThread->getName() : "unnamed",
+              name ? name : "unnamed");
+    holder = nullptr;
+
+    Thread *nextThread = waitQueue->RemoveAs<Thread>();
+    if (nextThread != nullptr) {
+        scheduler->ReadyToRun(nextThread);
+    }
+
+    (void) interrupt->SetLevel(oldLevel);		// re-enable interrupts
+}
+
+//----------------------------------------------------------------------
+// Lock::isHeldByCurrentThread
+// 	Return true if currentThread holds the lock.
+//----------------------------------------------------------------------
+
+bool Lock::isHeldByCurrentThread() const
+{
+    return (holder != nullptr && holder == currentThread);
+}
+
+//----------------------------------------------------------------------
+// Condition::Condition
+// 	Initialize condition variable.
+//----------------------------------------------------------------------
+
+Condition::Condition(const char* debugName) 
+    : name(debugName), waitQueue(std::make_unique<List>()) 
+{
+}
+
+Condition::~Condition() = default;
+
+//----------------------------------------------------------------------
+// Condition::Wait
+// 	Release lock atomically and sleep until signaled, then re-acquire.
+//----------------------------------------------------------------------
+
+void Condition::Wait(Lock* conditionLock)
+{
+    ASSERT(conditionLock != nullptr);
+    if (!conditionLock->isHeldByCurrentThread()) {
+        LOG_ERROR('s', "Condition::Wait misuse! Thread \"%s\" does not hold lock \"%s\"!\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  conditionLock->getName() ? conditionLock->getName() : "unnamed");
+        ASSERT(false);
+    }
+
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    conditionLock->Release();
+    waitQueue->Append(currentThread);
+    currentThread->Sleep();
+    conditionLock->Acquire();
+
+    (void) interrupt->SetLevel(oldLevel);
+}
+
+//----------------------------------------------------------------------
+// Condition::Signal
+// 	Wake up one waiting thread if any.
+//----------------------------------------------------------------------
+
+void Condition::Signal(Lock* conditionLock)
+{
+    ASSERT(conditionLock != nullptr);
+    if (!conditionLock->isHeldByCurrentThread()) {
+        LOG_ERROR('s', "Condition::Signal misuse! Thread \"%s\" does not hold lock \"%s\"!\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  conditionLock->getName() ? conditionLock->getName() : "unnamed");
+        ASSERT(false);
+    }
+
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    Thread *nextThread = waitQueue->RemoveAs<Thread>();
+    if (nextThread != nullptr) {
+        scheduler->ReadyToRun(nextThread);
+    }
+
+    (void) interrupt->SetLevel(oldLevel);
+}
+
+//----------------------------------------------------------------------
+// Condition::Broadcast
+// 	Wake up all waiting threads.
+//----------------------------------------------------------------------
+
+void Condition::Broadcast(Lock* conditionLock)
+{
+    ASSERT(conditionLock != nullptr);
+    if (!conditionLock->isHeldByCurrentThread()) {
+        LOG_ERROR('s', "Condition::Broadcast misuse! Thread \"%s\" does not hold lock \"%s\"!\n",
+                  currentThread->getName() ? currentThread->getName() : "unnamed",
+                  conditionLock->getName() ? conditionLock->getName() : "unnamed");
+        ASSERT(false);
+    }
+
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    while (!waitQueue->IsEmpty()) {
+        Thread *nextThread = waitQueue->RemoveAs<Thread>();
+        if (nextThread != nullptr) {
+            scheduler->ReadyToRun(nextThread);
+        }
+    }
+
+    (void) interrupt->SetLevel(oldLevel);
+}

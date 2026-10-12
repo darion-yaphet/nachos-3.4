@@ -90,7 +90,8 @@ class Lock {
 
   private:
     const char* name = nullptr;				// for debugging
-    // plus some other stuff you'll need to define
+    Thread* holder = nullptr;                           // thread currently holding this lock
+    std::unique_ptr<List> waitQueue;                    // threads waiting to acquire this lock
 };
 
 // Modern C++ RAII LockGuard for Lock
@@ -172,6 +173,6 @@ class Condition {
 
   private:
     const char* name = nullptr;
-    // plus some other stuff you'll need to define
+    std::unique_ptr<List> waitQueue;                    // threads waiting on this condition
 };
 #endif // SYNCH_H
