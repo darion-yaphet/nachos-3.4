@@ -19,6 +19,8 @@
 #include "system.h"
 #include "addrspace.h"
 #include "noff.h"
+#include <algorithm>
+#include <cstring>
 
 //----------------------------------------------------------------------
 // SwapHeader
@@ -27,19 +29,25 @@
 //	endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
 
-static void 
+static unsigned int SwapWord(unsigned int value)
+{
+    return ((value & 0xffU) << 24) | ((value & 0xff00U) << 8) |
+           ((value & 0xff0000U) >> 8) | ((value & 0xff000000U) >> 24);
+}
+
+static void
 SwapHeader (NoffHeader *noffH)
 {
-	noffH->noffMagic = WordToHost(noffH->noffMagic);
-	noffH->code.size = WordToHost(noffH->code.size);
-	noffH->code.virtualAddr = WordToHost(noffH->code.virtualAddr);
-	noffH->code.inFileAddr = WordToHost(noffH->code.inFileAddr);
-	noffH->initData.size = WordToHost(noffH->initData.size);
-	noffH->initData.virtualAddr = WordToHost(noffH->initData.virtualAddr);
-	noffH->initData.inFileAddr = WordToHost(noffH->initData.inFileAddr);
-	noffH->uninitData.size = WordToHost(noffH->uninitData.size);
-	noffH->uninitData.virtualAddr = WordToHost(noffH->uninitData.virtualAddr);
-	noffH->uninitData.inFileAddr = WordToHost(noffH->uninitData.inFileAddr);
+	noffH->noffMagic = SwapWord(noffH->noffMagic);
+	noffH->code.size = SwapWord(noffH->code.size);
+	noffH->code.virtualAddr = SwapWord(noffH->code.virtualAddr);
+	noffH->code.inFileAddr = SwapWord(noffH->code.inFileAddr);
+	noffH->initData.size = SwapWord(noffH->initData.size);
+	noffH->initData.virtualAddr = SwapWord(noffH->initData.virtualAddr);
+	noffH->initData.inFileAddr = SwapWord(noffH->initData.inFileAddr);
+	noffH->uninitData.size = SwapWord(noffH->uninitData.size);
+	noffH->uninitData.virtualAddr = SwapWord(noffH->uninitData.virtualAddr);
+	noffH->uninitData.inFileAddr = SwapWord(noffH->uninitData.inFileAddr);
 }
 
 //----------------------------------------------------------------------
@@ -58,62 +66,91 @@ SwapHeader (NoffHeader *noffH)
 //----------------------------------------------------------------------
 
 AddrSpace::AddrSpace(OpenFile *executable)
-    : pageTable(nullptr), numPages(0)
 {
-    NoffHeader noffH;
-    unsigned int i, size;
-
-    executable->ReadAt(reinterpret_cast<char *>(&noffH), sizeof(noffH), 0);
-    if ((noffH.noffMagic != NOFFMAGIC) && 
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
-    ASSERT(noffH.noffMagic == NOFFMAGIC);
-
-// how big is address space?
-    size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
-			+ UserStackSize;	// we need to increase the size
-						// to leave room for the stack
-    numPages = divRoundUp(size, PageSize);
-    size = numPages * PageSize;
-
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
-						// to run anything too big --
-						// at least until we have
-						// virtual memory
-
-    DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
-					numPages, size);
-// first, set up the translation 
-    pageTable = std::make_unique<TranslationEntry[]>(numPages);
-    for (i = 0; i < numPages; i++) {
-	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-	pageTable[i].physicalPage = i;
-	pageTable[i].valid = true;
-	pageTable[i].use = false;
-	pageTable[i].dirty = false;
-	pageTable[i].readOnly = false;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
+    if (executable == nullptr) {
+        loadError = "missing executable";
+        return;
     }
-    
-// zero out the entire address space, to zero the unitialized data segment 
-// and the stack segment
-    memset(machine->mainMemory, 0, size);
-
-// then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
-			noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-			noffH.code.size, noffH.code.inFileAddr);
+    NoffHeader header{};
+    const int fileLength = executable->Length();
+    if (fileLength < static_cast<int>(sizeof(header)) ||
+        executable->ReadAt(reinterpret_cast<char*>(&header), sizeof(header), 0) != sizeof(header)) {
+        loadError = "truncated NOFF header";
+        return;
     }
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
-			noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-			noffH.initData.size, noffH.initData.inFileAddr);
+    if (header.noffMagic != NOFFMAGIC && SwapWord(header.noffMagic) == NOFFMAGIC)
+        SwapHeader(&header);
+    if (header.noffMagic != NOFFMAGIC) {
+        loadError = "invalid NOFF magic";
+        return;
+    }
+    if (header.code.virtualAddr != 0 || header.code.size < 4 || header.code.size % 4 != 0) {
+        loadError = "code must contain aligned instructions at entry point zero";
+        return;
     }
 
+    const Segment segments[] = {header.code, header.initData, header.uninitData};
+    unsigned int imageEnd = 0;
+    for (int i = 0; i < 3; ++i) {
+        const Segment& segment = segments[i];
+        if (segment.size < 0) {
+            loadError = "negative segment size";
+            return;
+        }
+        // Historical converters leave unused metadata of empty segments unset.
+        if (segment.size == 0)
+            continue;
+        if (segment.virtualAddr < 0 || segment.virtualAddr > MemorySize - UserStackSize ||
+            segment.size > MemorySize - UserStackSize - segment.virtualAddr) {
+            loadError = "segment exceeds resident address space";
+            return;
+        }
+        const unsigned int end = segment.virtualAddr + segment.size;
+        imageEnd = std::max(imageEnd, end);
+        if (i < 2 && (segment.inFileAddr < static_cast<int>(sizeof(header)) ||
+                      segment.inFileAddr > fileLength ||
+                      segment.size > fileLength - segment.inFileAddr)) {
+            loadError = "truncated or invalid stored segment";
+            return;
+        }
+        for (int j = 0; j < i; ++j) {
+            const Segment& earlier = segments[j];
+            if (earlier.size != 0 && segment.virtualAddr < earlier.virtualAddr + earlier.size &&
+                earlier.virtualAddr < segment.virtualAddr + segment.size) {
+                loadError = "overlapping virtual segments";
+                return;
+            }
+            if (i < 2 && earlier.size != 0 &&
+                segment.inFileAddr < earlier.inFileAddr + earlier.size &&
+                earlier.inFileAddr < segment.inFileAddr + segment.size) {
+                loadError = "overlapping stored segments";
+                return;
+            }
+        }
+    }
+    const unsigned int pages = divRoundUp(imageEnd + UserStackSize, PageSize);
+    const unsigned int bytes = pages * PageSize;
+    auto image = std::make_unique<char[]>(bytes);
+    for (int i = 0; i < 2; ++i) {
+        const Segment& segment = segments[i];
+        if (segment.size != 0 && executable->ReadAt(image.get() + segment.virtualAddr,
+                segment.size, segment.inFileAddr) != segment.size) {
+            loadError = "short segment read";
+            return;
+        }
+    }
+    auto table = std::make_unique<TranslationEntry[]>(pages);
+    for (unsigned int i = 0; i < pages; ++i) {
+        table[i].virtualPage = i;
+        table[i].physicalPage = i; // one resident image, as in the original lab
+        table[i].valid = true;
+        table[i].readOnly = false;
+    }
+    // Commit only after validating and reading the complete image.
+    memcpy(machine->mainMemory, image.get(), bytes);
+    pageTable = std::move(table);
+    numPages = pages;
+    loadError = nullptr;
 }
 
 //----------------------------------------------------------------------
@@ -121,7 +158,18 @@ AddrSpace::AddrSpace(OpenFile *executable)
 // 	Deallocate an address space.
 //----------------------------------------------------------------------
 
-AddrSpace::~AddrSpace() = default;
+AddrSpace::~AddrSpace()
+{
+    if (machine != nullptr && machine->tlb != nullptr && currentThread != nullptr &&
+        currentThread->space == this) {
+        for (int i = 0; i < TLBSize; ++i)
+            machine->tlb[i].valid = false;
+    }
+    if (machine != nullptr && machine->pageTable == pageTable.get() && pageTable != nullptr) {
+        machine->pageTable = nullptr;
+        machine->pageTableSize = 0;
+    }
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::InitRegisters
@@ -136,6 +184,7 @@ AddrSpace::~AddrSpace() = default;
 void
 AddrSpace::InitRegisters()
 {
+    ASSERT(IsValid());
     int i;
 
     for (i = 0; i < NumTotalRegs; i++)
@@ -163,8 +212,40 @@ AddrSpace::InitRegisters()
 //	For now, nothing!
 //----------------------------------------------------------------------
 
-void AddrSpace::SaveState() 
-{}
+void AddrSpace::MergeTlbEntry(const TranslationEntry& entry)
+{
+    if (entry.valid && entry.virtualPage < numPages &&
+        pageTable[entry.virtualPage].physicalPage == entry.physicalPage) {
+        pageTable[entry.virtualPage].use |= entry.use;
+        pageTable[entry.virtualPage].dirty |= entry.dirty;
+    }
+}
+
+void AddrSpace::SaveState()
+{
+    if (machine->tlb != nullptr)
+        for (int i = 0; i < TLBSize; ++i) {
+            MergeTlbEntry(machine->tlb[i]);
+            machine->tlb[i].valid = false;
+        }
+}
+
+bool AddrSpace::ResolveTlbMiss(int virtualAddr)
+{
+    if (!IsValid() || machine->tlb == nullptr || virtualAddr < 0)
+        return false;
+    unsigned int vpn = static_cast<unsigned int>(virtualAddr) / PageSize;
+    if (vpn >= numPages || !pageTable[vpn].valid)
+        return false;
+    for (int i = 0; i < TLBSize; ++i)
+        if (machine->tlb[i].valid && machine->tlb[i].virtualPage == vpn)
+            return true;
+    const unsigned int slot = nextTlbSlot++ % TLBSize;
+    MergeTlbEntry(machine->tlb[slot]);
+    machine->tlb[slot] = pageTable[vpn];
+    DEBUG('a', "Resident TLB mapping for page %u\n", vpn);
+    return true;
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -176,6 +257,14 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState() 
 {
-    machine->pageTable = pageTable.get();
-    machine->pageTableSize = numPages;
+    ASSERT(IsValid());
+    if (machine->tlb != nullptr) {
+        machine->pageTable = nullptr;
+        machine->pageTableSize = 0;
+        for (int i = 0; i < TLBSize; ++i)
+            machine->tlb[i].valid = false;
+    } else {
+        machine->pageTable = pageTable.get();
+        machine->pageTableSize = numPages;
+    }
 }

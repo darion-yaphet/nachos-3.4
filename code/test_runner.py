@@ -14,6 +14,7 @@ import argparse
 import math
 import signal
 import tempfile
+import struct
 
 # ANSI color escape codes
 GREEN = "\033[92m"
@@ -30,7 +31,7 @@ if not sys.stdout.isatty():
 
 
 class TestCase:
-    def __init__(self, name, binary_path, args, expected_substrings=None, forbidden_substrings=None, description="", expected_returncode=0):
+    def __init__(self, name, binary_path, args, expected_substrings=None, forbidden_substrings=None, description="", expected_returncode=0, fixtures=None):
         self.name = name
         self.binary_path = binary_path
         self.args = args
@@ -38,6 +39,38 @@ class TestCase:
         self.forbidden_substrings = forbidden_substrings or []
         self.description = description
         self.expected_returncode = expected_returncode
+        self.fixtures = fixtures or {}
+
+
+def mips_program(swapped_header=False):
+    # The simulator's instruction decoder supplies the opcode/register layout.
+    # Every branch includes its delay slot, and each LW includes a load-delay NOP.
+    words = [
+        0x24080055,  # addiu t0, zero, 0x55
+        0x240900AA,  # addiu t1, zero, 0xaa
+        (8 << 21) | (9 << 16) | (10 << 11) | 0x25,  # or t2, t0, t1
+        0x240B00FF,  # addiu t3, zero, 0xff
+        0, 0,        # bne t2, t3, failure; delay slot
+        0x8C0C0400,  # lw t4, 1024(zero)
+        0,
+        0x3C0D1234,  # lui t5, 0x1234
+        0x35AD5678,  # ori t5, t5, 0x5678
+        0, 0,        # bne t4, t5, failure; delay slot
+        0xAC0A0600,  # sw t2, 1536(zero), into BSS
+        0x8C0E0600,  # lw t6, 1536(zero)
+        0,
+        0, 0,        # bne t6, t3, failure; delay slot
+        0x24020000,  # halt syscall number
+        0x0000000C,
+        0x24020063,  # failure uses unsupported syscall 99
+        0x0000000C,
+    ]
+    failure = 19
+    for index, rs, rt in [(4, 10, 11), (10, 12, 13), (15, 14, 11)]:
+        words[index] = (5 << 26) | (rs << 21) | (rt << 16) | (failure - index - 1)
+    code = struct.pack("<" + "I" * len(words), *words)
+    header = (0xBADFAD, 0, 40, len(code), 1024, 40 + len(code), 4, 1536, 0, 4)
+    return struct.pack((">" if swapped_header else "<") + "10i", *header) + code + struct.pack("<I", 0x12345678)
 
 
 def get_test_suite(code_dir):
@@ -114,6 +147,16 @@ def get_test_suite(code_dir):
         ("vm_memory_boundaries", "vm", ["-T", "usermem"], "User memory boundary tests PASSED"),
         ("filesys_boundaries", "filesys", ["-f", "-T", "filesys"], "File system boundary tests PASSED"),
         ("network_self_delivery", "network", ["-f", "-T", "network"], "Network self-delivery tests PASSED"),
+        ("threads_completion_handles", "threads", ["-d", "t", "-T", "handles"], "Stable join handle tests PASSED"),
+        ("userprog_process_lifecycle", "userprog", ["-T", "process"], "Process lifecycle tests PASSED"),
+        ("userprog_loader_boundaries", "userprog", ["-T", "loader"], "NOFF loader boundary tests PASSED"),
+        ("vm_loader_boundaries", "vm", ["-T", "loader"], "NOFF loader boundary tests PASSED"),
+        ("vm_resident_tlb", "vm", ["-T", "tlb"], "Resident TLB tests PASSED"),
+        ("userprog_exited_address_space", "userprog", ["-T", "exited-space"], "Exited address-space lifetime tests PASSED"),
+        ("vm_exited_address_space", "vm", ["-T", "exited-space"], "Exited address-space lifetime tests PASSED"),
+        ("threads_device_lifecycle", "threads", ["-T", "device"], "Device lifetime tests PASSED"),
+        ("userprog_console_lifecycle", "userprog", ["-T", "device"], "Device lifetime tests PASSED"),
+        ("network_device_lifecycle", "network", ["-f", "-T", "device"], "Device lifetime tests PASSED"),
     ]
     for name, module, args, expected in regressions:
         tests.append(TestCase(name, os.path.join(code_dir, module, "nachos"), args,
@@ -121,6 +164,8 @@ def get_test_suite(code_dir):
     for suite, diagnostics in [
         ("join-unstarted", ["Assertion failed", "../threads/thread.cc"]),
         ("join-multiple", ["Assertion failed", "../threads/thread.cc"]),
+        ("join-nonparent", ["Assertion failed", "../threads/thread.cc"]),
+        ("join-cached-nonparent", ["Assertion failed", "../threads/thread.cc"]),
         ("lock-misuse", ["Assertion failed", "[ERROR][s]", "Lock misuse detected"]),
         ("guard-null", ["Assertion failed", "../threads/synch.h"]),
     ]:
@@ -134,6 +179,45 @@ def get_test_suite(code_dir):
                               ["-rs", str(seed), "-d", "t", "-T", "join"],
                               ["All Nachos Concurrency Tests PASSED", "Join boundary tests PASSED"],
                               ["Assertion failed"]))
+        tests.append(TestCase(f"userprog_process_schedule_{seed}",
+                              os.path.join(code_dir, "userprog", "nachos"),
+                              ["-rs", str(seed), "-T", "process"],
+                              ["Process lifecycle tests PASSED", "Machine halting!"],
+                              ["Assertion failed"]))
+        tests.append(TestCase(f"network_device_schedule_{seed}",
+                              os.path.join(code_dir, "network", "nachos"),
+                              ["-f", "-rs", str(seed), "-T", "device"],
+                              ["Device lifetime tests PASSED", "Machine halting!"],
+                              ["Assertion failed"]))
+    for module in ("userprog", "vm"):
+        for swapped in (False, True):
+            expected = ["Shutdown, initiated by user program.", "Machine halting!"]
+            if module == "vm":
+                expected.append("Resident TLB mapping for page")
+            tests.append(TestCase(f"{module}_mips_execution" + ("_swapped_header" if swapped else ""),
+                                  os.path.join(code_dir, module, "nachos"),
+                                  ["-d", "a", "-x", "program.noff"],
+                                  expected,
+                                  ["Assertion failed", "Unable to load"],
+                                  fixtures={"program.noff": mips_program(swapped)}))
+    tests.append(TestCase("userprog_reject_truncated_noff",
+                          os.path.join(code_dir, "userprog", "nachos"),
+                          ["-x", "bad.noff"],
+                          ["Unable to load file bad.noff: truncated NOFF header", "Machine halting!"],
+                          ["Assertion failed"], fixtures={"bad.noff": b"bad"}))
+    invalid_address_program = bytearray(mips_program())
+    struct.pack_into("<I", invalid_address_program, 40 + 6 * 4, 0x8C0C1000)
+    tests.append(TestCase("vm_reject_unmapped_instruction_access",
+                          os.path.join(code_dir, "vm", "nachos"),
+                          ["-x", "invalid.noff"],
+                          ["Unexpected user mode exception", "Assertion failed"],
+                          expected_returncode=-signal.SIGABRT,
+                          fixtures={"invalid.noff": invalid_address_program}))
+    tests.append(TestCase("network_reject_shutdown_entry",
+                          os.path.join(code_dir, "network", "nachos"),
+                          ["-f", "-T", "post-shutdown-entry"],
+                          ["Assertion failed", "../network/post.cc"],
+                          expected_returncode=-signal.SIGABRT))
     return tests
 
 
@@ -147,6 +231,9 @@ def run_test(test, timeout, verbose):
         # Nachos creates DISK and Unix sockets relative to cwd. Keep tests away
         # from the developer's disk, and from each other.
         with tempfile.TemporaryDirectory(prefix="nachos-test-") as work_dir:
+            for name, contents in test.fixtures.items():
+                with open(os.path.join(work_dir, name), "wb") as fixture:
+                    fixture.write(contents)
             proc = subprocess.run(
                 cmd,
                 cwd=work_dir,

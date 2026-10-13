@@ -79,7 +79,7 @@ class Mail {
 class MailBox {
   public: 
     MailBox();			// Allocate and initialize mail box
-    ~MailBox();			// De-allocate mail box
+    ~MailBox();			// De-allocate mail box; requires no active Get/Put callers
 
     MailBox(const MailBox &) = delete;
     MailBox &operator=(const MailBox &) = delete;
@@ -110,7 +110,8 @@ class PostOffice {
 				//   "reliability" is how many packets
 				//   get dropped by the underlying network
 				//   get dropped by the underlying network
-    ~PostOffice();		// De-allocate Post Office data
+    ~PostOffice();		// De-allocate Post Office data; the owner must first
+				// stop and join every external Send/Receive caller
 
     PostOffice(const PostOffice &) = delete;
     PostOffice &operator=(const PostOffice &) = delete;
@@ -143,7 +144,10 @@ class PostOffice {
     int numBoxes = 0;		// Number of mail boxes
     std::unique_ptr<Semaphore> messageAvailable;// V'ed when message has arrived from network
     std::unique_ptr<Semaphore> messageSent;	// V'ed when next message can be sent to network
+    std::unique_ptr<Semaphore> workerStopped;	// postal worker has stopped touching this object
     std::unique_ptr<Lock> sendLock;		// Only one outgoing message at a time
+    bool stopping{false};			// request postal worker shutdown
+    unsigned activeClients{0};		// destructor requires no Send/Receive callers
 };
 
 #endif

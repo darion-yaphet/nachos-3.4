@@ -71,7 +71,12 @@ bool CopyToUser(const char* kernelBuf, int userVirtAddr, int byteCount);
 当前 `UserMem` 辅助函数通过 `machine->Translate()` 检查每个字节的页表或 TLB
 映射，访问失败返回 `false`，不会进入用户态异常处理器。失败前可能已拷贝一段
 前缀；字符串缓冲区在容量为正时会保留结尾 NUL。缺页与 TLB miss 也返回
-`false`，页面调入、TLB 填充及重试策略由后续虚拟内存实验实现。
+`false`，辅助函数不会主动填充 TLB。用户指令的驻留页 TLB miss 已可由异常处理器
+充填并重试；内核拷贝的重试策略和非驻留页调入由后续虚拟内存实验实现。
+
+加载器会验证 NOFF 头、实际文件长度、段范围及重叠，并在完整读入临时映像后
+写入模拟内存。通过 `AddrSpace::IsValid()` / `GetLoadError()` 检查结果，非法
+映像不会覆盖原内存。空段和 BSS 的未使用文件偏移保留旧转换工具兼容性。
 
 ### 任务 2：支持多道程序物理页框分配 (Page Allocator)
 
@@ -88,6 +93,30 @@ bool CopyToUser(const char* kernelBuf, int userVirtAddr, int byteCount);
    - 归还该进程占用的所有物理页框（`pageBitmap.Clear(entry.physicalPage)`）。
 
 ### 任务 3：实现核心系统调用
+
+进程表已提供原子创建与稳定句柄，可作为系统调用实现的基础：
+
+```cpp
+auto& manager = ProcessManager::Instance();
+auto parent = manager.CreateProcess();
+auto child = manager.CreateProcess(parent);
+auto retained = manager.GetProcess(child->GetPid());
+ASSERT(child->Exit(7));
+int status = 0;
+ASSERT(child->Wait(parent, &status) == ProcessWaitResult::Exited);
+ASSERT(manager.RemoveProcess(child));
+ASSERT(retained->Wait(parent, &status) == ProcessWaitResult::Exited);
+```
+
+查询句柄在移出进程表后仍有效；移除必须匹配原对象，避免 PID 复用后旧句柄误删
+新进程。父子等待也按父进程对象身份校验，不能用相同的数字 PID 代替父句柄。
+退出状态首次写入后不再改变，当前等待者全部唤醒，之后可重复查询。绑定线程使用
+`SetThreadHandle()`，地址空间由 `Process::SetSpace()` 与
+`Thread::SetAddressSpace()` 共享持有。接入用户态系统调用时，由内核取得真实
+调用者对应的父进程句柄，不能信任用户程序传入的身份。
+
+当前地址空间仍采用 `physicalPage = virtualPage`，只支持单个驻留用户映像；
+进程表和稳定句柄不替代上一个任务中的物理页框隔离。
 
 在 `code/userprog/exception.cc` 中实现系统调用分发与处理：
 

@@ -66,6 +66,7 @@ class Console {
 					// the PutChar I/O completes
     VoidFunctionPtr readHandler{nullptr}; 	// Interrupt handler to call when 
 					// a character arrives from the keyboard
+                                        // (both callbacks are non-owning)
     intptr_t handlerArg{0};		// argument to be passed to the 
 					// interrupt handlers
     bool putBusy{false};    		// Is a PutChar operation in progress?

@@ -47,6 +47,10 @@ Network::Network(NetworkAddress addr, double reliability,
 
 Network::~Network()
 {
+    // Scheduled callbacks borrow this Network pointer.  Revoke them before
+    // the socket and buffered device state disappear.
+    interrupt->Cancel(NetworkReadPoll, reinterpret_cast<intptr_t>(this));
+    interrupt->Cancel(NetworkSendDone, reinterpret_cast<intptr_t>(this));
     CloseSocket(sock);
     DeAssignNameToSocket(sockName);
 }
@@ -107,6 +111,7 @@ Network::Send(PacketHeader hdr, const char* data)
 		&& (hdr.length <= MaxPacketSize) && (hdr.from == ident));
     DEBUG('n', "Sending to addr %d, %d bytes... ", hdr.to, hdr.length);
 
+    sendBusy = true;
     interrupt->Schedule(NetworkSendDone, (intptr_t)this, NetworkTime, NetworkSendInt);
 
     if (Random() % 100 >= chanceToWork * 100) { // emulate a lost packet

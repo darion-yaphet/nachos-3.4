@@ -23,17 +23,20 @@
 void
 StartProcess(const char *filename)
 {
-    OpenFile *executable = fileSystem->Open(filename);
-    AddrSpace *space;
+    std::unique_ptr<OpenFile> executable(fileSystem->Open(filename));
 
     if (executable == nullptr) {
 	printf("Unable to open file %s\n", filename);
 	return;
     }
-    space = new AddrSpace(executable);    
-    currentThread->space = space;
-
-    delete executable;			// close file
+    auto loaded = std::make_shared<AddrSpace>(executable.get());
+    if (!loaded->IsValid()) {
+        printf("Unable to load file %s: %s\n", filename, loaded->GetLoadError());
+        return;
+    }
+    currentThread->SetAddressSpace(std::move(loaded));
+    executable.reset();
+    AddrSpace* space = currentThread->space;
 
     space->InitRegisters();		// set the initial register values
     space->RestoreState();		// load page table register

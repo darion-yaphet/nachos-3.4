@@ -172,25 +172,34 @@ void
 Cleanup()
 {
     printf("\nCleaning up...\n");
+    (void) interrupt->SetLevel(IntOff);
 #ifdef NETWORK
     delete postOffice;
+    postOffice = nullptr;
 #endif
     
 #ifdef USER_PROGRAM
+    currentThread->SetAddressSpace(nullptr);
     delete machine;
+    machine = nullptr;
 #endif
 
 #ifdef FILESYS_NEEDED
     delete fileSystem;
+    fileSystem = nullptr;
 #endif
 
 #ifdef FILESYS
     delete synchDisk;
+    synchDisk = nullptr;
 #endif
     
     delete timer;
+    timer = nullptr;
     delete scheduler;
+    scheduler = nullptr;
     delete interrupt;
+    interrupt = nullptr;
     
     Exit(0);
 }

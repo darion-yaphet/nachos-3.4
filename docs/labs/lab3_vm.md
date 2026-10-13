@@ -52,13 +52,17 @@ flowchart TD
 
 在 `code/vm/` 模式下（编译时带有 `-DUSE_TLB`），`machine->tlb` 生效，`machine->pageTable` 为 `nullptr`。
 
+当前基座已实现驻留页充填：`AddrSpace::ResolveTlbMiss()` 采用轮转槽位，替换
+前及上下文切换时将 `use/dirty` 合并到后备页表。可解析的缺失返回后重试原指令，
+不推进 PC；越界地址不会无限重试。这条路径不从磁盘或 Swap 调入页面。
+
 1. 在 `code/userprog/exception.cc` 中捕获 `PageFaultException`：
    - 从 `machine->ReadRegister(BadVAddrReg)` 读取触发异常的虚拟地址。
    - 计算虚拟页号：`vpn = badVAddr / PageSize`。
 2. 从当前进程完整的后备页表（Backup Page Table）中找到对应的 `TranslationEntry`。
 3. 选择一个 TLB 槽位进行充填：
    - 先填入无效（`valid == false`）的槽位。
-   - 若 16 个 TLB 项全满，使用 FIFO 或随机算法选择一个槽位踢出，并将新项载入。
+   - 若 `TLBSize`（当前为 4）个项全满，使用 FIFO 或随机算法选择一个槽位踢出，并将新项载入。
    - **注意**：踢出旧项前，必须将 TLB 项中的 `dirty` 和 `use` 位写回进程的后备页表中！
 
 ### 任务 2：实现页面置换算法 (Page Replacement)

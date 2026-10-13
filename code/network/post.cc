@@ -19,6 +19,7 @@
 #include "copyright.h"
 #include "post.h"
 #include "synch.h"
+#include "system.h"
 
 //----------------------------------------------------------------------
 // Mail::Mail
@@ -58,7 +59,13 @@ MailBox::MailBox()
 //	in the mailbox.
 //----------------------------------------------------------------------
 
-MailBox::~MailBox() = default;
+MailBox::~MailBox()
+{
+    // List nodes do not own their payloads.  The enclosing PostOffice must
+    // first stop producers and guarantee that no receiver is waiting.
+    while (Mail *mail = messages->TryRemoveAs<Mail>())
+        delete mail;
+}
 
 //----------------------------------------------------------------------
 // PrintHeader
@@ -172,6 +179,7 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
 // First, initialize the synchronization with the interrupt handlers
     messageAvailable = std::make_unique<Semaphore>("message available", 0);
     messageSent = std::make_unique<Semaphore>("message sent", 0);
+    workerStopped = std::make_unique<Semaphore>("postal worker stopped", 0);
     sendLock = std::make_unique<Lock>("message send lock");
 
 // Second, initialize the mailboxes
@@ -182,7 +190,11 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
 
 // Finally, create a thread whose sole job is to wait for incoming messages,
 //   and put them in the right mailbox. 
-    Thread *t = new Thread("postal worker");
+    Thread *t = new Thread("postal worker", true);
+    // Request handle-managed lifetime before Fork. The PostOffice may be
+    // destroyed by a thread other than this parent, so shutdown uses the
+    // workerStopped handshake instead of the parent-only Join operation.
+    (void)t->GetJoinHandle();
     t->Fork(PostalHelper, reinterpret_cast<intptr_t>(this));
 }
 
@@ -191,7 +203,30 @@ PostOffice::PostOffice(NetworkAddress addr, double reliability, int nBoxes)
 // 	De-allocate the post office data structures.
 //----------------------------------------------------------------------
 
-PostOffice::~PostOffice() = default;
+PostOffice::~PostOffice()
+{
+    // Callers blocked in Send or Receive still borrow synchronization and
+    // mailbox state; the owner must stop them before destroying PostOffice.
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+    stopping = true;
+    ASSERT(activeClients == 0);
+
+    messageAvailable->V();
+    workerStopped->P();
+
+    // Network callbacks borrow this PostOffice. Cancel them while all
+    // callback targets and synchronization objects still exist.
+    network.reset();
+    boxes.reset();
+    sendLock.reset();
+    workerStopped.reset();
+    messageSent.reset();
+    messageAvailable.reset();
+
+    // All state reachable by a device callback or client is gone before
+    // restoring the caller's interrupt level. Enabling may advance time.
+    (void)interrupt->SetLevel(oldLevel);
+}
 
 //----------------------------------------------------------------------
 // PostOffice::PostalDelivery
@@ -210,7 +245,15 @@ PostOffice::PostalDelivery()
 
     for (;;) {
         // first, wait for a message
-        messageAvailable->P();	
+        messageAvailable->P();
+        if (stopping) {
+            // Keep interrupts off between making the destructor runnable and
+            // finishing, so it cannot resume and free state still in use here.
+            (void)interrupt->SetLevel(IntOff);
+            workerStopped->V();
+            currentThread->Finish();
+            ASSERT(false);
+        }
         pktHdr = network->Receive(buffer);
 
         memcpy(&mailHdr, buffer, sizeof(mailHdr));
@@ -244,6 +287,11 @@ PostOffice::PostalDelivery()
 void
 PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, const char* data)
 {
+    IntStatus entryLevel = interrupt->SetLevel(IntOff);
+    ASSERT(!stopping);
+    ++activeClients;
+    (void)interrupt->SetLevel(entryLevel);
+
     char buffer[MaxPacketSize];	// space to hold concatenated
 				// mailHdr + data
 
@@ -269,6 +317,11 @@ PostOffice::Send(PacketHeader pktHdr, MailHeader mailHdr, const char* data)
         messageSent->P();		// wait for interrupt to tell us
 					// ok to send the next message
     }
+
+    IntStatus exitLevel = interrupt->SetLevel(IntOff);
+    ASSERT(activeClients > 0);
+    --activeClients;
+    (void)interrupt->SetLevel(exitLevel);
 }
 
 //----------------------------------------------------------------------
@@ -290,10 +343,20 @@ void
 PostOffice::Receive(int box, PacketHeader *pktHdr, 
 				MailHeader *mailHdr, char* data)
 {
+    IntStatus entryLevel = interrupt->SetLevel(IntOff);
+    ASSERT(!stopping);
+    ++activeClients;
+    (void)interrupt->SetLevel(entryLevel);
+
     ASSERT((box >= 0) && (box < numBoxes));
 
     boxes[box].Get(pktHdr, mailHdr, data);
     ASSERT(mailHdr->length <= MaxMailSize);
+
+    IntStatus exitLevel = interrupt->SetLevel(IntOff);
+    ASSERT(activeClients > 0);
+    --activeClients;
+    (void)interrupt->SetLevel(exitLevel);
 }
 
 //----------------------------------------------------------------------

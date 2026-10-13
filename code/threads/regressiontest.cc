@@ -220,10 +220,45 @@ static void NetworkRegressionTest()
 }
 #endif
 
+extern void JoinHandleRegressionTest();
+extern void NonParentJoinRegressionTest(bool completed);
+extern void DeviceRegressionTest();
+#ifdef NETWORK
+extern void PostOfficeShutdownEntryRegressionTest();
+#endif
+#ifdef USER_PROGRAM
+extern void ProcessRegressionTest();
+extern void LoaderRegressionTest();
+extern void TlbRegressionTest();
+extern void ExitedAddressSpaceRegressionTest();
+#endif
+
 void RegressionTest(const char* suite)
 {
     if (strcmp(suite, "list") == 0) {
         ListRegressionTest();
+    } else if (strcmp(suite, "handles") == 0) {
+        JoinHandleRegressionTest();
+    } else if (strcmp(suite, "join-nonparent") == 0) {
+        NonParentJoinRegressionTest(false);
+    } else if (strcmp(suite, "join-cached-nonparent") == 0) {
+        NonParentJoinRegressionTest(true);
+    } else if (strcmp(suite, "device") == 0) {
+        DeviceRegressionTest();
+#ifdef NETWORK
+    } else if (strcmp(suite, "post-shutdown-entry") == 0) {
+        PostOfficeShutdownEntryRegressionTest();
+#endif
+#ifdef USER_PROGRAM
+    } else if (strcmp(suite, "process") == 0) {
+        ProcessRegressionTest();
+    } else if (strcmp(suite, "loader") == 0) {
+        LoaderRegressionTest();
+    } else if (strcmp(suite, "tlb") == 0) {
+        TlbRegressionTest();
+    } else if (strcmp(suite, "exited-space") == 0) {
+        ExitedAddressSpaceRegressionTest();
+#endif
     } else if (strcmp(suite, "lifecycle") == 0) {
         ThreadLifecycleRegressionTest();
     } else if (strcmp(suite, "join-unstarted") == 0) {

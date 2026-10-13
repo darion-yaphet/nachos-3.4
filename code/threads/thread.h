@@ -40,6 +40,7 @@
 #include "copyright.h"
 #include "utility.h"
 #include <memory>
+#include <cstdint>
 
 #ifdef HOST_DARWIN_ARM64
 #include <ucontext.h>
@@ -79,6 +80,22 @@ extern void ThreadPrint(intptr_t arg);
 //  that only run in the kernel have a NULL address space.
 
 class Semaphore;
+struct ThreadCompletion;
+
+// A completion handle retains exit status, never a thread's stack. Only the
+// creating parent may wait, but it may copy the handle and query status again.
+class ThreadJoinHandle {
+  public:
+    ThreadJoinHandle() = default;
+    [[nodiscard]] bool IsValid() const noexcept { return completion != nullptr; }
+    int Join() const;
+
+  private:
+    friend class Thread;
+    explicit ThreadJoinHandle(std::shared_ptr<ThreadCompletion> state)
+        : completion(std::move(state)) {}
+    std::shared_ptr<ThreadCompletion> completion;
+};
 
 class Thread {
   private:
@@ -113,12 +130,16 @@ class Thread {
     void Finish();  				// The thread is done executing
     
     // Thread synchronization & joining
-    // One kernel caller may join a forked joinable thread. Join deletes the
+    // The creating parent may join a forked joinable thread. Join deletes the
     // target; its pointer must never be used again (including a second Join).
     int Join();
+    // Acquire before Fork; opts into automatic thread reclamation at Finish.
+    // Use the returned handle for all waits, then stop using the raw pointer.
+    ThreadJoinHandle GetJoinHandle();
     void SetExitStatus(int st) noexcept { exitStatus = st; }
     [[nodiscard]] int GetExitStatus() const noexcept { return exitStatus; }
     [[nodiscard]] bool IsJoinable() const noexcept { return isJoinable; }
+    [[nodiscard]] std::uint64_t GetId() const noexcept { return threadId; }
 
     void CheckOverflow() const;   		// Check if thread has 
 						// overflowed its stack
@@ -142,10 +163,11 @@ class Thread {
     const char* name = nullptr;
 
     bool isJoinable{false};
-    bool hasExited{false};
     bool joinStarted{false};
+    bool automaticReclaim{false};
+    std::uint64_t threadId{0};
     int exitStatus{0};
-    std::unique_ptr<Semaphore> joinSem;
+    std::shared_ptr<ThreadCompletion> completion;
 
     void StackAllocate(VoidFunctionPtr func, intptr_t arg);
     						// Allocate a stack for thread.
@@ -162,7 +184,11 @@ class Thread {
     void SaveUserState();		// save user-level register state
     void RestoreUserState();		// restore user-level register state
 
+    // space is a compatibility observer; shared ownership is retained here.
+    void SetAddressSpace(std::shared_ptr<AddrSpace> addressSpace);
     AddrSpace *space;			// User code this thread is running.
+  private:
+    std::shared_ptr<AddrSpace> ownedSpace;
 #endif
 };
 

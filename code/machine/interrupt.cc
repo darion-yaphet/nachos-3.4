@@ -254,6 +254,44 @@ Interrupt::Schedule(VoidFunctionPtr handler, intptr_t arg, int fromNow, IntType 
 }
 
 //----------------------------------------------------------------------
+// Interrupt::Cancel
+// 	Remove pending callbacks for one device instance.  The handler is
+// 	non-owning; matching both it and its argument prevents one instance
+// 	from cancelling another instance's callbacks.
+//
+// 	Unlike SetLevel(IntOn), restoring the old level here must not advance
+// 	simulated time: device destructors use this before releasing state
+// 	that a pending callback refers to.
+//----------------------------------------------------------------------
+unsigned
+Interrupt::Cancel(VoidFunctionPtr handler, intptr_t arg)
+{
+    ASSERT(handler != nullptr);
+
+    IntStatus oldLevel = level;
+    ChangeLevel(oldLevel, IntOff);
+
+    auto retained = std::make_unique<List>();
+    unsigned cancelled = 0;
+    int when;
+    while (!pending->IsEmpty()) {
+        auto *event = static_cast<PendingInterrupt *>(pending->SortedRemove(&when));
+        if (event->handler == handler && event->arg == arg) {
+            delete event;
+            ++cancelled;
+        } else {
+            // Events are removed in queue order. Stable sorted insertion keeps
+            // equal-time events in that same order.
+            retained->SortedInsert(event, when);
+        }
+    }
+    pending = std::move(retained);
+
+    ChangeLevel(IntOff, oldLevel);
+    return cancelled;
+}
+
+//----------------------------------------------------------------------
 // Interrupt::CheckIfDue
 // 	Check if an interrupt is scheduled to occur, and if so, fire it off.
 //

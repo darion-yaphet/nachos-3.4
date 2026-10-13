@@ -34,7 +34,13 @@ SynchList::SynchList()
 // 	De-allocate the data structures created for synchronizing a list. 
 //----------------------------------------------------------------------
 
-SynchList::~SynchList() = default;
+SynchList::~SynchList()
+{
+    // Destroying a monitor cannot safely wake callers whose operation still
+    // refers to it. Owners must stop and join such callers before teardown.
+    ASSERT(activeOperations == 0);
+    ASSERT(waitingRemovers == 0);
+}
 
 //----------------------------------------------------------------------
 // SynchList::Append
@@ -48,10 +54,12 @@ SynchList::~SynchList() = default;
 void
 SynchList::Append(void *item)
 {
+    ++activeOperations;
     lock->Acquire();		// enforce mutual exclusive access to the list 
     list->Append(item);
     listEmpty->Signal(lock.get());	// wake up a waiter, if any
     lock->Release();
+    --activeOperations;
 }
 
 //----------------------------------------------------------------------
@@ -67,12 +75,35 @@ SynchList::Remove()
 {
     void *item;
 
+    ++activeOperations;
     lock->Acquire();			// enforce mutual exclusion
-    while (list->IsEmpty())
+    while (list->IsEmpty()) {
+	++waitingRemovers;
 	listEmpty->Wait(lock.get());		// wait until list isn't empty
+	--waitingRemovers;
+    }
     item = list->Remove();
     ASSERT(item != nullptr);
     lock->Release();
+    --activeOperations;
+    return item;
+}
+
+//----------------------------------------------------------------------
+// SynchList::TryRemove
+//      Remove an item without waiting.  This is suitable for draining an
+//      owner-managed queue during shutdown after all producers/consumers
+//      have stopped.
+//----------------------------------------------------------------------
+
+void *
+SynchList::TryRemove()
+{
+    ++activeOperations;
+    lock->Acquire();
+    void *item = list->Remove();
+    lock->Release();
+    --activeOperations;
     return item;
 }
 
@@ -87,7 +118,9 @@ SynchList::Remove()
 void
 SynchList::Mapcar(VoidFunctionPtr func)
 { 
+    ++activeOperations;
     lock->Acquire(); 
     list->Mapcar(func);
     lock->Release(); 
+    --activeOperations;
 }

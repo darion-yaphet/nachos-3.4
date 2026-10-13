@@ -92,6 +92,7 @@ class Network {
 				//      can be sent.  
     VoidFunctionPtr readHandler = nullptr;  // Interrupt handler, signalling packet has 
 				// 	arrived.
+                                            // Both callbacks are non-owning.
     intptr_t handlerArg = 0;	// Argument to be passed to interrupt handler
 				//   (pointer to post office)
     bool sendBusy = false;		// Packet is being sent.

@@ -15,6 +15,7 @@
 
 #include "copyright.h"
 #include "filesys.h"
+#include "translate.h"
 
 constexpr int UserStackSize = 1024; 	// increase this as necessary!
 
@@ -26,6 +27,14 @@ class AddrSpace {
 					// initializing it with the program
 					// stored in the file "executable"
     ~AddrSpace();			// De-allocate an address space
+
+    [[nodiscard]] bool IsValid() const noexcept { return loadError == nullptr; }
+    [[nodiscard]] const char* GetLoadError() const noexcept { return loadError; }
+    // Fill a resident mapping; this baseline does not page data in from swap.
+    bool ResolveTlbMiss(int virtualAddr);
+    [[nodiscard]] const TranslationEntry* GetPageEntry(unsigned int page) const noexcept {
+        return page < numPages ? &pageTable[page] : nullptr;
+    }
 
     AddrSpace(const AddrSpace&) = delete;
     AddrSpace& operator=(const AddrSpace&) = delete;
@@ -39,8 +48,11 @@ class AddrSpace {
   private:
     std::unique_ptr<TranslationEntry[]> pageTable; // Assume linear page table translation
 					// for now!
-    unsigned int numPages{0};		// Number of pages in the virtual 
+    unsigned int numPages{0};		// Number of pages in the virtual
 					// address space
+    const char* loadError{"executable not loaded"};
+    unsigned int nextTlbSlot{0};
+    void MergeTlbEntry(const TranslationEntry& entry);
 };
 
 #endif // ADDRSPACE_H

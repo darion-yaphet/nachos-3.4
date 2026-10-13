@@ -60,6 +60,8 @@ THREAD_C =../threads/main.cc\
 	../threads/utility.cc\
 	../threads/threadtest.cc\
 	../threads/regressiontest.cc\
+	../threads/join_regression.cc\
+	../threads/device_regression.cc\
 	../machine/interrupt.cc\
 	../machine/sysdep.cc\
 	../machine/stats.cc\
@@ -68,7 +70,7 @@ THREAD_C =../threads/main.cc\
 THREAD_S = ../threads/switch.s
 
 THREAD_O =main.o list.o scheduler.o synch.o synchlist.o system.o thread.o \
-	utility.o threadtest.o regressiontest.o interrupt.o stats.o sysdep.o timer.o
+	utility.o threadtest.o regressiontest.o join_regression.o device_regression.o interrupt.o stats.o sysdep.o timer.o
 
 USERPROG_H = ../userprog/addrspace.h\
 	../userprog/bitmap.h\
@@ -85,6 +87,8 @@ USERPROG_C = ../userprog/addrspace.cc\
 	../userprog/bitmap.cc\
 	../userprog/usermem.cc\
 	../userprog/process.cc\
+	../userprog/process_regression.cc\
+	../userprog/loader_regression.cc\
 	../userprog/exception.cc\
 	../userprog/progtest.cc\
 	../machine/console.cc\
@@ -92,7 +96,7 @@ USERPROG_C = ../userprog/addrspace.cc\
 	../machine/mipssim.cc\
 	../machine/translate.cc
 
-USERPROG_O = addrspace.o bitmap.o usermem.o process.o exception.o progtest.o console.o machine.o \
+USERPROG_O = addrspace.o bitmap.o usermem.o process.o process_regression.o loader_regression.o exception.o progtest.o console.o machine.o \
 	mipssim.o translate.o
 
 VM_H = 
@@ -130,6 +134,10 @@ $(C_OFILES): %.o:
 	$(CC) $(CFLAGS) -c $<
 
 regressiontest.o: ../threads/regressiontest.cc $(THREAD_H) $(USERPROG_H) $(FILESYS_H)
+join_regression.o: ../threads/join_regression.cc $(THREAD_H)
+device_regression.o: ../threads/device_regression.cc $(THREAD_H) $(USERPROG_H) $(NETWORK_H)
+process_regression.o: ../userprog/process_regression.cc $(THREAD_H) $(USERPROG_H)
+loader_regression.o: ../userprog/loader_regression.cc $(THREAD_H) $(USERPROG_H) ../bin/noff.h
 
 switch.o: ../threads/switch.s
 	$(CPP) -P $(INCPATH) $(HOST) ../threads/switch.s > swtch.s

@@ -51,6 +51,11 @@
 void
 ExceptionHandler(ExceptionType which)
 {
+    if (which == PageFaultException && currentThread->space != nullptr &&
+        currentThread->space->ResolveTlbMiss(machine->ReadRegister(BadVAddrReg))) {
+        ++stats->numPageFaults;
+        return; // retry the faulting instruction; do not advance PC
+    }
     int type = machine->ReadRegister(2);
 
     if ((which == SyscallException) && (type == SC_Halt)) {

@@ -35,6 +35,9 @@ class SynchList {
 				// and wake up any thread waiting in remove
     void *Remove();		// remove the first item from the front of
 				// the list, waiting if the list is empty
+
+    void *TryRemove();		// remove the first item, or return nullptr
+				// immediately when the list is empty
 				// apply function to every item in the list
     void Mapcar(VoidFunctionPtr func);
 
@@ -49,10 +52,17 @@ class SynchList {
         return static_cast<T *>(Remove());
     }
 
+    template <typename T>
+    T *TryRemoveAs() {
+        return static_cast<T *>(TryRemove());
+    }
+
   private:
     std::unique_ptr<List> list;			// the unsynchronized list
     std::unique_ptr<Lock> lock;			// enforce mutual exclusive access to the list
     std::unique_ptr<Condition> listEmpty;	// wait in Remove if the list is empty
+    unsigned activeOperations{0};		// destructor requires no active callers
+    unsigned waitingRemovers{0};		// destructor requires no active waiters
 };
 
 #endif // SYNCHLIST_H

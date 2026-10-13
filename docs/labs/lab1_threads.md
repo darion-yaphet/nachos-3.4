@@ -112,13 +112,26 @@ class RwLock {
 ### 任务 3（进阶挑战）：实现 `Thread::Join()` 与退出状态回收
 
 Nachos 原生模型中，主线程退出时若子线程仍在执行，缺少优雅等待机制。
-当前基座已提供 `int Thread::Join()`：对已 `Fork()` 的 joinable 线程允许一个
-内核调用者等待，返回退出码并删除目标线程；返回后目标指针失效，不可再次调用。
-未启动线程和并发的第二个等待者会触发断言。下面的父子资格校验、可重复查询
-退出码等语义属于扩展任务，需要先调整对象回收与句柄设计。
+当前基座提供两种等待接口，均只允许创建目标线程的父线程等待：
 
-1. 在 `Thread` 中引入父子等待关系与退出码状态。
-2. 扩展 `int Thread::Join()`：
+- `int Thread::Join()` 兼容原接口，返回退出码并删除目标线程；返回后指针失效。
+- 在 `Fork()` 前调用 `GetJoinHandle()` 获取 `ThreadJoinHandle`，后续用
+  `handle.Join()` 等待。线程结束后由调度器自动回收对象和栈，完成句柄可复制并
+  重复读取退出码；未启动目标和非父调用者会触发断言，包括对缓存结果的查询。
+
+```cpp
+Thread* child = new Thread("child", true);
+ThreadJoinHandle completion = child->GetJoinHandle();
+child->Fork(ChildMain, 0);
+int status = completion.Join();
+ASSERT(completion.Join() == status);
+```
+
+选用完成句柄后，等待阶段只使用句柄，不再访问 `child`。父子身份由不复用的
+线程编号判断，避免父线程指针复用造成越权；不混用两种回收模式。
+
+1. 阅读两种等待接口的父子关系和退出状态保存方式。
+2. 编写回归用例验证：
    - 调用者阻塞等待目标线程执行 `Finish()`。
    - 目标线程结束时唤醒等待者并清理自身堆栈。
    - 考虑处理：多次 Join、非父进程 Join、线程尚未启动或已经结束的情况。

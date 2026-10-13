@@ -113,6 +113,10 @@ class Interrupt {
     void Schedule(VoidFunctionPtr handler,// Schedule an interrupt to occur
 	intptr_t arg, int when, IntType type);// at time ``when''.  This is called
     					// by the hardware device simulators.
+
+    // Cancel every pending event owned by the exact handler/argument pair.
+    // This preserves the current interrupt level and does not advance time.
+    unsigned Cancel(VoidFunctionPtr handler, intptr_t arg);
     
     void OneTick();       		// Advance simulated time
 

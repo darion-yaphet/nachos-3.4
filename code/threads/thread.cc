@@ -19,6 +19,33 @@
 #include "switch.h"
 #include "synch.h"
 #include "system.h"
+#include <limits>
+
+struct ThreadCompletion {
+    explicit ThreadCompletion(std::uint64_t owner)
+        : parentId(owner), done(std::make_unique<Semaphore>("thread completion", 0)) {}
+    std::uint64_t parentId;
+    bool started{false};
+    bool exited{false};
+    int status{0};
+    std::unique_ptr<Semaphore> done;
+};
+
+static std::uint64_t nextThreadId = 0;
+
+int ThreadJoinHandle::Join() const
+{
+    auto state = completion;
+    ASSERT(state != nullptr);
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+    ASSERT(currentThread->GetId() == state->parentId);
+    ASSERT(state->started);
+    if (!state->exited)
+        state->done->P();
+    int result = state->status;
+    (void) interrupt->SetLevel(oldLevel);
+    return result;
+}
 
 constexpr unsigned int STACK_FENCEPOST = 0xdeadbeef;	// this is put at the top of the
 					// execution stack, for detecting 
@@ -39,8 +66,11 @@ Thread::Thread(const char* threadName, bool joinable)
     stackTop = nullptr;
     stack = nullptr;
     status = JUST_CREATED;
+    ASSERT(nextThreadId != std::numeric_limits<std::uint64_t>::max());
+    threadId = ++nextThreadId;
     if (isJoinable) {
-        joinSem = std::make_unique<Semaphore>("joinSem", 0);
+        completion = std::make_shared<ThreadCompletion>(
+            currentThread != nullptr ? currentThread->GetId() : 0);
     }
 #ifdef USER_PROGRAM
     space = nullptr;
@@ -99,6 +129,8 @@ Thread::Fork(VoidFunctionPtr func, intptr_t arg)
     StackAllocate(func, arg);
 
     IntStatus oldLevel = interrupt->SetLevel(IntOff);
+    if (completion != nullptr)
+        completion->started = true;
     scheduler->ReadyToRun(this);	// ReadyToRun assumes that interrupts 
 					// are disabled!
     (void) interrupt->SetLevel(oldLevel);
@@ -154,11 +186,13 @@ Thread::Finish ()
     
     DEBUG('t', "Finishing thread \"%s\"\n", getName());
     
-    hasExited = true;
-    if (isJoinable && joinSem != nullptr) {
-        joinSem->V();
-        // Do not set threadToBeDestroyed; joining thread will delete this
-    } else {
+    if (completion != nullptr) {
+        completion->status = exitStatus;
+        completion->exited = true;
+        completion->done->V();
+    }
+    if (!isJoinable || automaticReclaim) {
+        ASSERT(threadToBeDestroyed == nullptr);
         threadToBeDestroyed = currentThread;
     }
 
@@ -180,15 +214,26 @@ Thread::Join()
     ASSERT(this != currentThread);
     ASSERT(status != JUST_CREATED);
     ASSERT(!joinStarted);
+    ASSERT(!automaticReclaim);
+    ASSERT(currentThread->GetId() == completion->parentId);
     joinStarted = true;
 
-    if (!hasExited && joinSem != nullptr) {
-        joinSem->P();
+    if (!completion->exited) {
+        completion->done->P();
     }
-    int exitCode = exitStatus;
+    int exitCode = completion->status;
     delete this;
     (void) interrupt->SetLevel(oldLevel);
     return exitCode;
+}
+
+ThreadJoinHandle Thread::GetJoinHandle()
+{
+    ASSERT(isJoinable);
+    ASSERT(status == JUST_CREATED);
+    ASSERT(currentThread->GetId() == completion->parentId);
+    automaticReclaim = true;
+    return ThreadJoinHandle(completion);
 }
 
 //----------------------------------------------------------------------
@@ -357,6 +402,21 @@ Thread::RunThreadRoot()
 
 #ifdef USER_PROGRAM
 #include "machine.h"
+
+void Thread::SetAddressSpace(std::shared_ptr<AddrSpace> addressSpace)
+{
+    if (this == currentThread && machine != nullptr && space != nullptr &&
+        space != addressSpace.get()) {
+        space->SaveState();
+        machine->pageTable = nullptr;
+        machine->pageTableSize = 0;
+        if (machine->tlb != nullptr)
+            for (int i = 0; i < TLBSize; ++i)
+                machine->tlb[i].valid = false;
+    }
+    ownedSpace = std::move(addressSpace);
+    space = ownedSpace.get();
+}
 
 //----------------------------------------------------------------------
 // Thread::SaveUserState

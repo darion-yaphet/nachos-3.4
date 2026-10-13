@@ -72,6 +72,10 @@ Console::Console(const char *readFile, const char *writeFile, VoidFunctionPtr re
 
 Console::~Console()
 {
+    // Scheduled callbacks borrow this Console pointer.  Revoke them before
+    // closing descriptors or releasing any other device state.
+    interrupt->Cancel(ConsoleReadPoll, reinterpret_cast<intptr_t>(this));
+    interrupt->Cancel(ConsoleWriteDone, reinterpret_cast<intptr_t>(this));
     if (readFileNo != 0)
 	Close(readFileNo);
     if (writeFileNo != 1)
