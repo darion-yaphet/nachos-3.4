@@ -91,6 +91,8 @@ Thread::~Thread()
 void 
 Thread::Fork(VoidFunctionPtr func, intptr_t arg)
 {
+    ASSERT(status == JUST_CREATED);
+    ASSERT(func != nullptr);
     DEBUG('t', "Forking thread \"%s\" with func = %p, arg = %ld\n",
 	  name, (void *) func, (long) arg);
     
@@ -173,14 +175,19 @@ Thread::Finish ()
 int
 Thread::Join()
 {
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
     ASSERT(isJoinable);
     ASSERT(this != currentThread);
+    ASSERT(status != JUST_CREATED);
+    ASSERT(!joinStarted);
+    joinStarted = true;
 
     if (!hasExited && joinSem != nullptr) {
         joinSem->P();
     }
     int exitCode = exitStatus;
     delete this;
+    (void) interrupt->SetLevel(oldLevel);
     return exitCode;
 }
 
@@ -265,7 +272,12 @@ Thread::Sleep ()
 //----------------------------------------------------------------------
 
 static void ThreadFinish()    { currentThread->Finish(); }
-static void InterruptEnable() { interrupt->Enable(); }
+static void InterruptEnable()
+{
+    // A first-run thread does not return through Scheduler::Run after SWITCH.
+    scheduler->ReapFinishedThread();
+    interrupt->Enable();
+}
 void ThreadPrint(intptr_t arg){ auto *t = reinterpret_cast<Thread *>(arg); t->Print(); }
 
 //----------------------------------------------------------------------

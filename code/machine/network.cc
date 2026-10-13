@@ -66,11 +66,11 @@ Network::CheckPktAvail()
 	return;
 
     // otherwise, read packet in
-    char buffer[MaxWireSize];
+    char buffer[MaxWireSize] = {};
     ReadFromSocket(sock, buffer, MaxWireSize);
 
     // divide packet into header and data
-    inHdr = *reinterpret_cast<const PacketHeader *>(buffer);
+    memcpy(&inHdr, buffer, sizeof(inHdr));
     ASSERT((inHdr.to == ident) && (inHdr.length <= MaxPacketSize));
     memmove(inbox, buffer + sizeof(PacketHeader), inHdr.length);
 
@@ -115,8 +115,8 @@ Network::Send(PacketHeader hdr, const char* data)
     }
 
     // concatenate hdr and data into a single buffer, and send it out
-    char buffer[MaxWireSize];
-    *reinterpret_cast<PacketHeader *>(buffer) = hdr;
+    char buffer[MaxWireSize] = {};
+    memcpy(buffer, &hdr, sizeof(hdr));
     memmove(buffer + sizeof(PacketHeader), data, hdr.length);
     SendToSocket(sock, buffer, MaxWireSize, toName);
 }

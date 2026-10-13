@@ -79,12 +79,12 @@ DEBUG(char flag, const char *format, ...)
 void
 LogMessage(LogLevel level, char flag, const char* format, ...)
 {
-    if (!DebugIsEnabled(flag)) {
+    if (level != LogLevel::ERROR_LEVEL && !DebugIsEnabled(flag)) {
         return;
     }
 
-    const char* colorCode = "";
-    const char* levelStr = "INFO";
+    const char* colorCode;
+    const char* levelStr;
     bool useColor = (isatty(fileno(stdout)) != 0);
 
     switch (level) {
@@ -93,6 +93,7 @@ LogMessage(LogLevel level, char flag, const char* format, ...)
             colorCode = useColor ? "\033[36m" : ""; // Cyan
             break;
         case LogLevel::INFO_LEVEL:
+        default:
             levelStr = "INFO";
             colorCode = useColor ? "\033[32m" : ""; // Green
             break;
@@ -129,4 +130,3 @@ LogMessage(LogLevel level, char flag, const char* format, ...)
     va_end(ap);
     fflush(stdout);
 }
-

@@ -213,7 +213,7 @@ PostOffice::PostalDelivery()
         messageAvailable->P();	
         pktHdr = network->Receive(buffer);
 
-        mailHdr = *reinterpret_cast<const MailHeader *>(buffer);
+        memcpy(&mailHdr, buffer, sizeof(mailHdr));
         if (DebugIsEnabled('n')) {
 	    printf("Putting mail into mailbox: ");
 	    PrintHeader(pktHdr, mailHdr);

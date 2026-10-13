@@ -32,6 +32,7 @@ class Scheduler {
     Thread* FindNextToRun();		// Dequeue first thread on the ready 
 					// list, if any, and return thread.
     void Run(Thread* nextThread);	// Cause nextThread to start running
+    void ReapFinishedThread();       // called on the new stack, interrupts off
     void Print() const;			// Print contents of ready list
     
   private:

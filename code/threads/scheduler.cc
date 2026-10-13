@@ -118,10 +118,7 @@ Scheduler::Run (Thread *nextThread)
     // we need to delete its carcass.  Note we cannot delete the thread
     // before now (for example, in Thread::Finish()), because up to this
     // point, we were still running on the old thread's stack!
-    if (threadToBeDestroyed != nullptr) {
-        delete threadToBeDestroyed;
-	threadToBeDestroyed = nullptr;
-    }
+    ReapFinishedThread();
     
 #ifdef USER_PROGRAM
     if (currentThread->space != nullptr) {		// if there is an address space
@@ -129,6 +126,16 @@ Scheduler::Run (Thread *nextThread)
 	currentThread->space->RestoreState();
     }
 #endif
+}
+
+void Scheduler::ReapFinishedThread()
+{
+    ASSERT(interrupt->getLevel() == IntOff);
+    if (threadToBeDestroyed != nullptr) {
+        Thread* finished = threadToBeDestroyed;
+        threadToBeDestroyed = nullptr;
+        delete finished;
+    }
 }
 
 //----------------------------------------------------------------------

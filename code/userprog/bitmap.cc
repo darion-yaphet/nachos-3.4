@@ -65,7 +65,7 @@ void
 BitMap::Mark(int which) 
 { 
     ASSERT(which >= 0 && which < numBits);
-    map[which / BitsInWord] |= 1 << (which % BitsInWord);
+    map[which / BitsInWord] |= 1U << (which % BitsInWord);
 }
     
 //----------------------------------------------------------------------
@@ -79,7 +79,7 @@ void
 BitMap::Clear(int which) 
 { 
     ASSERT(which >= 0 && which < numBits);
-    map[which / BitsInWord] &= ~(1 << (which % BitsInWord));
+    map[which / BitsInWord] &= ~(1U << (which % BitsInWord));
 }
 
 //----------------------------------------------------------------------
@@ -94,7 +94,7 @@ BitMap::Test(int which) const
 {
     ASSERT(which >= 0 && which < numBits);
     
-    return (map[which / BitsInWord] & (1 << (which % BitsInWord))) != 0;
+    return (map[which / BitsInWord] & (1U << (which % BitsInWord))) != 0;
 }
 
 //----------------------------------------------------------------------

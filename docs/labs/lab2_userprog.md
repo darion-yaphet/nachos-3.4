@@ -68,7 +68,10 @@ bool CopyFromUser(int userVirtAddr, char* kernelBuf, int byteCount);
 // 将内核缓冲区数据安全写入用户虚拟地址空间
 bool CopyToUser(const char* kernelBuf, int userVirtAddr, int byteCount);
 ```
-这些函数内部通过 `machine->ReadMem()` / `machine->WriteMem()` 进行页表映射翻译，遇到无效地址立即报错，保障内核健壮性。
+当前 `UserMem` 辅助函数通过 `machine->Translate()` 检查每个字节的页表或 TLB
+映射，访问失败返回 `false`，不会进入用户态异常处理器。失败前可能已拷贝一段
+前缀；字符串缓冲区在容量为正时会保留结尾 NUL。缺页与 TLB miss 也返回
+`false`，页面调入、TLB 填充及重试策略由后续虚拟内存实验实现。
 
 ### 任务 2：支持多道程序物理页框分配 (Page Allocator)
 

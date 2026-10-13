@@ -11,6 +11,9 @@ import os
 import subprocess
 import time
 import argparse
+import math
+import signal
+import tempfile
 
 # ANSI color escape codes
 GREEN = "\033[92m"
@@ -27,17 +30,18 @@ if not sys.stdout.isatty():
 
 
 class TestCase:
-    def __init__(self, name, binary_path, args, expected_substrings=None, forbidden_substrings=None, description=""):
+    def __init__(self, name, binary_path, args, expected_substrings=None, forbidden_substrings=None, description="", expected_returncode=0):
         self.name = name
         self.binary_path = binary_path
         self.args = args
         self.expected_substrings = expected_substrings or []
         self.forbidden_substrings = forbidden_substrings or []
         self.description = description
+        self.expected_returncode = expected_returncode
 
 
 def get_test_suite(code_dir):
-    return [
+    tests = [
         TestCase(
             name="threads_concurrency",
             binary_path=os.path.join(code_dir, "threads", "nachos"),
@@ -102,27 +106,60 @@ def get_test_suite(code_dir):
             description="Virtual memory subsystem with TLB support bootstrap and halt"
         ),
     ]
+    regressions = [
+        ("list_ownership", "threads", ["-T", "list"], "List ownership tests PASSED"),
+        ("threads_detached_lifecycle", "threads", ["-T", "lifecycle"], "Detached thread lifecycle tests PASSED"),
+        ("threads_join_completed", "threads", ["-T", "join"], "Join boundary tests PASSED"),
+        ("userprog_memory_boundaries", "userprog", ["-T", "usermem"], "User memory boundary tests PASSED"),
+        ("vm_memory_boundaries", "vm", ["-T", "usermem"], "User memory boundary tests PASSED"),
+        ("filesys_boundaries", "filesys", ["-f", "-T", "filesys"], "File system boundary tests PASSED"),
+        ("network_self_delivery", "network", ["-f", "-T", "network"], "Network self-delivery tests PASSED"),
+    ]
+    for name, module, args, expected in regressions:
+        tests.append(TestCase(name, os.path.join(code_dir, module, "nachos"), args,
+                              [expected, "Machine halting!"], ["Assertion failed"]))
+    for suite, diagnostics in [
+        ("join-unstarted", ["Assertion failed", "../threads/thread.cc"]),
+        ("join-multiple", ["Assertion failed", "../threads/thread.cc"]),
+        ("lock-misuse", ["Assertion failed", "[ERROR][s]", "Lock misuse detected"]),
+        ("guard-null", ["Assertion failed", "../threads/synch.h"]),
+    ]:
+        tests.append(TestCase("threads_reject_" + suite.replace("-", "_"),
+                              os.path.join(code_dir, "threads", "nachos"),
+                              ["-T", suite], diagnostics,
+                              expected_returncode=-signal.SIGABRT))
+    for seed in (1, 7, 42):
+        tests.append(TestCase(f"threads_random_schedule_{seed}",
+                              os.path.join(code_dir, "threads", "nachos"),
+                              ["-rs", str(seed), "-d", "t", "-T", "join"],
+                              ["All Nachos Concurrency Tests PASSED", "Join boundary tests PASSED"],
+                              ["Assertion failed"]))
+    return tests
 
 
 def run_test(test, timeout, verbose):
     if not os.path.isfile(test.binary_path):
         return False, f"Binary '{test.binary_path}' not found. Please run 'make' first.", 0.0
 
-    cmd = [test.binary_path] + test.args
-    start_time = time.time()
+    cmd = [os.path.abspath(test.binary_path)] + test.args
+    start_time = time.monotonic()
     try:
-        proc = subprocess.run(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            timeout=timeout
-        )
-        elapsed = time.time() - start_time
+        # Nachos creates DISK and Unix sockets relative to cwd. Keep tests away
+        # from the developer's disk, and from each other.
+        with tempfile.TemporaryDirectory(prefix="nachos-test-") as work_dir:
+            proc = subprocess.run(
+                cmd,
+                cwd=work_dir,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=timeout
+            )
+        elapsed = time.monotonic() - start_time
         output = proc.stdout
 
-        if proc.returncode != 0:
-            return False, f"Process exited with non-zero code {proc.returncode}.\nOutput:\n{output}", elapsed
+        if proc.returncode != test.expected_returncode:
+            return False, f"Process exited with code {proc.returncode}, expected {test.expected_returncode}.\nOutput:\n{output}", elapsed
 
         for substr in test.expected_substrings:
             if substr not in output:
@@ -135,10 +172,10 @@ def run_test(test, timeout, verbose):
         return True, output, elapsed
 
     except subprocess.TimeoutExpired:
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         return False, f"Execution timed out after {timeout} seconds (potential deadlock or infinite loop).", elapsed
     except Exception as e:
-        elapsed = time.time() - start_time
+        elapsed = time.monotonic() - start_time
         return False, f"Execution error: {str(e)}", elapsed
 
 
@@ -148,6 +185,8 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="Print verbose test output")
     parser.add_argument("--timeout", "-t", type=float, default=10.0, help="Per-test timeout in seconds (default: 10s)")
     args = parser.parse_args()
+    if not math.isfinite(args.timeout) or args.timeout <= 0:
+        parser.error("--timeout must be a finite positive number")
 
     script_dir = os.path.dirname(os.path.abspath(__file__))
     code_dir = script_dir
@@ -155,6 +194,8 @@ def main():
     tests = get_test_suite(code_dir)
     if args.filter:
         tests = [t for t in tests if args.filter.lower() in t.name.lower()]
+    if not tests:
+        parser.error(f"No tests match filter: {args.filter!r}")
 
     print(f"{BOLD}{BLUE}======================================================================{RESET}")
     print(f"{BOLD}{BLUE}               Nachos Educational Automated Test Suite                {RESET}")
@@ -162,7 +203,7 @@ def main():
     print(f"Total test cases selected: {len(tests)}\n")
 
     passed_count = 0
-    total_start = time.time()
+    total_start = time.monotonic()
 
     for idx, test in enumerate(tests, start=1):
         print(f"[{idx}/{len(tests)}] Running {BOLD}{test.name}{RESET} ... ", end="", flush=True)
@@ -177,7 +218,7 @@ def main():
             print(f"{RED}{BOLD}[FAIL]{RESET} ({elapsed * 1000:.1f}ms)")
             print(f"{YELLOW}Reason:{RESET} {output}")
 
-    total_elapsed = time.time() - total_start
+    total_elapsed = time.monotonic() - total_start
     print(f"\n{BOLD}{BLUE}======================================================================{RESET}")
     summary_color = GREEN if passed_count == len(tests) else RED
     print(f"Summary: {summary_color}{passed_count}/{len(tests)} passed{RESET} "

@@ -16,6 +16,7 @@
 
 #include "disk.h"
 #include "bitmap.h"
+#include <type_traits>
 
 constexpr int NumDirect = ((SectorSize - 2 * sizeof(int)) / sizeof(int));
 constexpr int MaxFileSize = (NumDirect * SectorSize);
@@ -64,5 +65,10 @@ class FileHeader {
     int dataSectors[NumDirect]{};	// Disk sector numbers for each data 
 					// block in the file
 };
+
+static_assert(sizeof(FileHeader) == SectorSize, "FileHeader must fit one disk sector");
+static_assert(std::is_standard_layout_v<FileHeader> &&
+              std::is_trivially_copyable_v<FileHeader>,
+              "FileHeader is stored on disk as its object representation");
 
 #endif // FILEHDR_H

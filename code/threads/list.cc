@@ -17,6 +17,7 @@
 
 #include "copyright.h"
 #include "list.h"
+#include <utility>
 
 //----------------------------------------------------------------------
 // List::~List
@@ -30,8 +31,25 @@
 
 List::~List()
 { 
-    while (Remove() != nullptr)
-	;	 // delete all the list elements
+    while (!IsEmpty())
+        Remove(); // an item may be null even when there are more nodes
+}
+
+List::List(List&& other) noexcept
+    : first(std::exchange(other.first, nullptr)),
+      last(std::exchange(other.last, nullptr))
+{
+}
+
+List& List::operator=(List&& other) noexcept
+{
+    if (this != &other) {
+        while (!IsEmpty())
+            Remove();
+        first = std::exchange(other.first, nullptr);
+        last = std::exchange(other.last, nullptr);
+    }
+    return *this;
 }
 
 //----------------------------------------------------------------------

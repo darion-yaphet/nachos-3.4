@@ -25,7 +25,7 @@
   - 支持 `LOG_INFO`, `LOG_WARN`, `LOG_ERROR`, `LOG_DEBUG` 宏，自动携带当前系统时钟周期（`Tick`）与正在执行的线程名。
   - 终端自适应 ANSI 彩色高亮输出，大幅降低多线程时序竞争排错难度。
 - 🧪 **一键自动化测试套件与 CI 支持**：
-  - 内置 Python 自动化测试脚本 [`code/test_runner.py`](file:///Users/darion.yaphet/source/nachos-3.4/code/test_runner.py)，一键覆盖并发调度、文件系统、用户态停机与虚拟内存。
+  - 内置 Python 自动化测试脚本 [`code/test_runner.py`](code/test_runner.py)，一键覆盖并发调度、文件系统、用户态停机与虚拟内存。
 - 🍎 **现代平台原生支持**：
   - 基于 POSIX `ucontext` 原生适配 Apple Silicon (macOS ARM64) 与 Linux (x86_64)。
 
@@ -47,22 +47,13 @@ make -C code
 # 一键运行全部实验的自动化回归评测
 ./code/test_runner.py
 ```
-预期输出：
-```text
-======================================================================
-               Nachos Educational Automated Test Suite                
-======================================================================
-Total test cases selected: 5
+测试覆盖常规并发、随机调度、Join 误用、链表移动所有权、用户内存边界、
+文件系统边界和网络自投递。每个用例在独立临时目录运行，避免覆盖工作目录中的
+`DISK`；没有匹配测试的筛选会返回非零退出码。
 
-[1/5] Running threads_concurrency ... [PASS] (3.4ms)
-[2/5] Running threads_structured_logging ... [PASS] (3.6ms)
-[3/5] Running filesys_format_and_dump ... [PASS] (348.1ms)
-[4/5] Running userprog_initialization ... [PASS] (355.9ms)
-[5/5] Running vm_tlb_initialization ... [PASS] (360.8ms)
-
-======================================================================
-Summary: 5/5 passed (100.0%) - Total time: 1.07s
-======================================================================
+```bash
+# 仅运行用户内存边界测试
+python3 code/test_runner.py --filter memory_boundaries --verbose
 ```
 
 ### 3. 运行单个实验模块
@@ -93,12 +84,12 @@ Summary: 5/5 passed (100.0%) - Total time: 1.07s
 
 项目配备了详尽的 Markdown 现代实验指导手册与架构解析：
 
-- 🏛️ [**系统架构与设计全景 (ARCHITECTURE.md)**](file:///Users/darion.yaphet/source/nachos-3.4/docs/ARCHITECTURE.md)：双层执行模型、MIPS 虚拟机与中断驱动时钟剖析。
-- 🧵 [**Lab 1: 线程管理与并发同步**](file:///Users/darion.yaphet/source/nachos-3.4/docs/labs/lab1_threads.md)：线程调度、互斥锁、Mesa 条件变量与读写锁。
-- 🖥️ [**Lab 2: 多道程序设计与系统调用**](file:///Users/darion.yaphet/source/nachos-3.4/docs/labs/lab2_userprog.md)：MIPS ABI 系统调用分发、安全用户内存拷贝与页框位图分配。
-- 💾 [**Lab 3: 虚拟内存与页面置换**](file:///Users/darion.yaphet/source/nachos-3.4/docs/labs/lab3_vm.md)：TLB 缺失充填、FIFO/Clock/LRU 页面置换算法与 Swap 交换区。
-- 📁 [**Lab 4: 文件系统扩展与目录树**](file:///Users/darion.yaphet/source/nachos-3.4/docs/labs/lab4_filesys.md)：突破 3.75KB 限制、一级/二级间接索引块与层次目录树。
-- 🌐 [**Lab 5: 网络通信与可靠传输协议**](file:///Users/darion.yaphet/source/nachos-3.4/docs/labs/lab5_network.md)：邮局系统、停等协议与滑动窗口可靠传输。
+- 🏛️ [**系统架构与设计全景 (ARCHITECTURE.md)**](docs/ARCHITECTURE.md)：双层执行模型、MIPS 虚拟机与中断驱动时钟剖析。
+- 🧵 [**Lab 1: 线程管理与并发同步**](docs/labs/lab1_threads.md)：线程调度、互斥锁、Mesa 条件变量与读写锁。
+- 🖥️ [**Lab 2: 多道程序设计与系统调用**](docs/labs/lab2_userprog.md)：MIPS ABI 系统调用分发、安全用户内存拷贝与页框位图分配。
+- 💾 [**Lab 3: 虚拟内存与页面置换**](docs/labs/lab3_vm.md)：TLB 缺失充填、FIFO/Clock/LRU 页面置换算法与 Swap 交换区。
+- 📁 [**Lab 4: 文件系统扩展与目录树**](docs/labs/lab4_filesys.md)：突破 3.75KB 限制、一级/二级间接索引块与层次目录树。
+- 🌐 [**Lab 5: 网络通信与可靠传输协议**](docs/labs/lab5_network.md)：邮局系统、停等协议与滑动窗口可靠传输。
 
 ---
 
@@ -128,4 +119,4 @@ nachos-3.4/
 ## 📜 版权与致敬
 
 - 原作者：Tom Anderson 等人，加州大学伯克利分校（UC Berkeley）。
-- 详见 [`COPYRIGHT`](file:///Users/darion.yaphet/source/nachos-3.4/COPYRIGHT) 文件。
+- 详见 [`COPYRIGHT`](COPYRIGHT) 文件。

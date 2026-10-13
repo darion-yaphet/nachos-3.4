@@ -98,19 +98,14 @@ class Lock {
 class LockGuard {
   public:
     explicit LockGuard(Lock *lockPtr) : lock(lockPtr) {
-        if (lock != nullptr) {
-            lock->Acquire();
-        }
+        ASSERT(lock != nullptr);
+        lock->Acquire();
     }
     explicit LockGuard(Lock &lockRef) : lock(&lockRef) {
-        if (lock != nullptr) {
-            lock->Acquire();
-        }
+        lock->Acquire();
     }
     ~LockGuard() {
-        if (lock != nullptr) {
-            lock->Release();
-        }
+        lock->Release();
     }
     LockGuard(const LockGuard &) = delete;
     LockGuard &operator=(const LockGuard &) = delete;

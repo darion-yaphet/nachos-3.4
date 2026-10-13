@@ -111,11 +111,10 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
 {
     int fileLength = hdr->FileLength();
     int i, firstSector, lastSector, numSectors;
-    char *buf;
 
-    if ((numBytes <= 0) || (position >= fileLength))
+    if (into == nullptr || numBytes <= 0 || position < 0 || position >= fileLength)
     	return 0; 				// check request
-    if ((position + numBytes) > fileLength)		
+    if (numBytes > fileLength - position)
 	numBytes = fileLength - position;
     DEBUG('f', "Reading %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
@@ -125,14 +124,13 @@ OpenFile::ReadAt(char *into, int numBytes, int position)
     numSectors = 1 + lastSector - firstSector;
 
     // read in all the full and partial sectors that we need
-    buf = new char[numSectors * SectorSize];
+    auto buf = std::make_unique<char[]>(numSectors * SectorSize);
     for (i = firstSector; i <= lastSector; i++)	
         synchDisk->ReadSector(hdr->ByteToSector(i * SectorSize), 
 					&buf[(i - firstSector) * SectorSize]);
 
     // copy the part we want
     memmove(into, &buf[position - (firstSector * SectorSize)], numBytes);
-    delete [] buf;
     return numBytes;
 }
 
@@ -142,11 +140,10 @@ OpenFile::WriteAt(const char *from, int numBytes, int position)
     int fileLength = hdr->FileLength();
     int i, firstSector, lastSector, numSectors;
     bool firstAligned, lastAligned;
-    char *buf;
 
-    if ((numBytes <= 0) || (position >= fileLength))
+    if (from == nullptr || numBytes <= 0 || position < 0 || position >= fileLength)
 	return 0;				// check request
-    if ((position + numBytes) > fileLength)
+    if (numBytes > fileLength - position)
 	numBytes = fileLength - position;
     DEBUG('f', "Writing %d bytes at %d, from file of length %d.\n", 	
 			numBytes, position, fileLength);
@@ -155,14 +152,14 @@ OpenFile::WriteAt(const char *from, int numBytes, int position)
     lastSector = divRoundDown(position + numBytes - 1, SectorSize);
     numSectors = 1 + lastSector - firstSector;
 
-    buf = new char[numSectors * SectorSize];
+    auto buf = std::make_unique<char[]>(numSectors * SectorSize);
 
     firstAligned = (position == (firstSector * SectorSize));
     lastAligned = ((position + numBytes) == ((lastSector + 1) * SectorSize));
 
 // read in first and last sector, if they are to be partially modified
     if (!firstAligned)
-        ReadAt(buf, SectorSize, firstSector * SectorSize);	
+        ReadAt(buf.get(), SectorSize, firstSector * SectorSize);
     if (!lastAligned && ((firstSector != lastSector) || firstAligned))
         ReadAt(&buf[(lastSector - firstSector) * SectorSize], 
 				SectorSize, lastSector * SectorSize);	
@@ -174,7 +171,6 @@ OpenFile::WriteAt(const char *from, int numBytes, int position)
     for (i = firstSector; i <= lastSector; i++)	
         synchDisk->WriteSector(hdr->ByteToSector(i * SectorSize), 
 					&buf[(i - firstSector) * SectorSize]);
-    delete [] buf;
     return numBytes;
 }
 

@@ -49,8 +49,8 @@ class List {
     // Non-copyable
     List(const List &) = delete;
     List &operator=(const List &) = delete;
-    List(List &&) noexcept = default;
-    List &operator=(List &&) noexcept = default;
+    List(List &&other) noexcept;
+    List &operator=(List &&other) noexcept;
 
     void Prepend(void *item); 	// Put item at the beginning of the list
     void Append(void *item); 	// Put item at the end of the list

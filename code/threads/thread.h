@@ -113,7 +113,9 @@ class Thread {
     void Finish();  				// The thread is done executing
     
     // Thread synchronization & joining
-    int Join();                                 // Wait for thread to finish and retrieve status
+    // One kernel caller may join a forked joinable thread. Join deletes the
+    // target; its pointer must never be used again (including a second Join).
+    int Join();
     void SetExitStatus(int st) noexcept { exitStatus = st; }
     [[nodiscard]] int GetExitStatus() const noexcept { return exitStatus; }
     [[nodiscard]] bool IsJoinable() const noexcept { return isJoinable; }
@@ -141,6 +143,7 @@ class Thread {
 
     bool isJoinable{false};
     bool hasExited{false};
+    bool joinStarted{false};
     int exitStatus{0};
     std::unique_ptr<Semaphore> joinSem;
 

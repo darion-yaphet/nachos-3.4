@@ -41,10 +41,14 @@
 bool
 FileHeader::Allocate(BitMap *freeMap, int fileSize)
 { 
+    if (fileSize < 0 || fileSize > MaxFileSize)
+        return false;
+    const int sectors = divRoundUp(fileSize, SectorSize);
+    if (freeMap->NumClear() < sectors)
+        return false; // failure leaves both the header and bitmap unchanged
+
     numBytes = fileSize;
-    numSectors  = divRoundUp(fileSize, SectorSize);
-    if (freeMap->NumClear() < numSectors)
-	return FALSE;		// not enough space
+    numSectors = sectors;
 
     for (int i = 0; i < numSectors; i++)
 	dataSectors[i] = freeMap->Find();
@@ -106,6 +110,7 @@ FileHeader::WriteBack(int sector)
 int
 FileHeader::ByteToSector(int offset) const
 {
+    ASSERT(offset >= 0 && offset < numBytes);
     return(dataSectors[offset / SectorSize]);
 }
 

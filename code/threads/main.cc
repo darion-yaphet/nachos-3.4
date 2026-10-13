@@ -60,6 +60,7 @@ extern void ThreadTest(void), Copy(const char *unixFile, const char *nachosFile)
 extern void Print(const char *file), PerformanceTest(void);
 extern void StartProcess(const char *file), ConsoleTest(const char *in, const char *out);
 extern void MailTest(int networkID);
+extern void RegressionTest(const char* suite);
 
 //----------------------------------------------------------------------
 // main
@@ -92,6 +93,11 @@ main(int argc, char **argv)
 	argCount = 1;
         if (!strcmp(*argv, "-z"))               // print copyright
             printf ("%s", copyright);
+        if (!strcmp(*argv, "-T")) {             // explicit regression suite
+            ASSERT(argc > 1);
+            RegressionTest(*(argv + 1));
+            argCount = 2;
+        }
 #ifdef USER_PROGRAM
         if (!strcmp(*argv, "-x")) {        	// run a user program
 	    ASSERT(argc > 1);
