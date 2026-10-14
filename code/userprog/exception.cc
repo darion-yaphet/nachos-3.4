@@ -62,7 +62,7 @@ ExceptionHandler(ExceptionType which)
 	DEBUG('a', "Shutdown, initiated by user program.\n");
    	interrupt->Halt();
     } else {
-	printf("Unexpected user mode exception %d %d\n", which, type);
+	fprintf(stderr, "Unexpected user mode exception %d %d\n", which, type);
 	ASSERT(FALSE);
     }
 }
