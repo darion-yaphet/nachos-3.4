@@ -55,15 +55,9 @@ extern int Random();
 extern char *AllocBoundedArray(int size);
 extern void DeallocBoundedArray(char *p, int size);
 
-// Other C library routines that are used by Nachos.
-// These are assumed to be portable, so we don't include a wrapper.
-extern "C" {
-int atoi(const char *str);
-double atof(const char *str);
-int abs(int i);
-
+// Use the platform declarations, including their linkage and exception specs.
+#include <stdlib.h>
 #include <stdio.h>		// for printf, fprintf
 #include <string.h>		// for DEBUG, etc.
-}
 
 #endif // SYSDEP_H

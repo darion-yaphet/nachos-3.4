@@ -101,7 +101,7 @@ class Thread {
   private:
     // NOTE: DO NOT CHANGE the order of these first two members.
     int* stackTop = nullptr;			 // the current stack pointer
-    __attribute__((unused)) int machineState[MachineStateSize] = {};  // all registers except for stackTop
+    [[maybe_unused]] int machineState[MachineStateSize] = {};  // all registers except for stackTop
 
 #ifdef HOST_DARWIN_ARM64
     ucontext_t context = {};

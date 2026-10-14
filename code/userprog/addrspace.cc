@@ -214,7 +214,8 @@ AddrSpace::InitRegisters()
 
 void AddrSpace::MergeTlbEntry(const TranslationEntry& entry)
 {
-    if (entry.valid && entry.virtualPage < numPages &&
+    if (entry.valid && entry.virtualPage >= 0 &&
+        static_cast<unsigned int>(entry.virtualPage) < numPages &&
         pageTable[entry.virtualPage].physicalPage == entry.physicalPage) {
         pageTable[entry.virtualPage].use |= entry.use;
         pageTable[entry.virtualPage].dirty |= entry.dirty;
@@ -238,7 +239,7 @@ bool AddrSpace::ResolveTlbMiss(int virtualAddr)
     if (vpn >= numPages || !pageTable[vpn].valid)
         return false;
     for (int i = 0; i < TLBSize; ++i)
-        if (machine->tlb[i].valid && machine->tlb[i].virtualPage == vpn)
+        if (machine->tlb[i].valid && machine->tlb[i].virtualPage == static_cast<int>(vpn))
             return true;
     const unsigned int slot = nextTlbSlot++ % TLBSize;
     MergeTlbEntry(machine->tlb[slot]);
